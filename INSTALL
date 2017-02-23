@@ -1,19 +1,7 @@
 Based on my fresh install of vanilla Debian, hopefully you should only need to install a couple of things.
 
 LUA 5.3
-Most of LilyQuick is written in Lua 5.3. I have almost always found Lua easy to install. First download Lua from here:
-
-https://www.lua.org/ftp/
-
-In a terminal, navigate to the uncompressed folder. Type
-
-> sudo make linux
-
-then:
-
-> sudo make install
-
-My Debian installation needed libreadline-dev to install Lua. If this is missing, type:
+Most of LilyQuick is written in Lua 5.3. It includes Lua 5.3.4 statically to avoid versioning problems. My Debian installation needed libreadline-dev to install Lua. If this is missing, type:
 
 > sudo apt-get libreadline-dev
 
@@ -41,7 +29,6 @@ Type
 > sudo ./lq
 
 to run LilyQuick (intercepting keystrokes requires superuser privileges).
-
 
 COMPUTER KEYBOARD
 If compilation was successful, you should have an executable file called lq in this directory.
