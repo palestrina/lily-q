@@ -1,0 +1,55 @@
+LILYQUICK
+
+Welcome to LilyQuick, originally written as a replacement for Speedy Note Entry when I moved from Finale to Lilypond, and then much improved. The basic idea is to play notes on a MIDI keyboard with your left hand, then while they are sounding, press a note on the numeric keypad with your right hand corresponding to the duration. For example, to get "f2", play an F on the keyboard, and press number 5 on the numeric keypad. The advantage to this approach is excellent speed and accuracy, and you get to hear the notes as they are being entered.
+
+The default key layout is as follows: numeric keypad keys 0-6 produce notes in conjunction with the MIDI keyboard.
+6 - semibreve/whole
+5 - minim/half
+4 - crochet/quarter
+1 - quaver/eighth
+2 - semiquaver/sixteenth
+3 - demisemiquaver/thirty-second
+0 - last note value (useful with repeated dotted notes)
+
+If useLongValues is set to true in LQconfig.lua, the 3 key changes to \breve. This can be useful when entering early music.
+
+7 adds whole bar rests such as R1* , then changes to data entry mode, where the numeric keypad behaves as normal. Pressing enter leaves data entry mode. The type of rest is from the variable fullRest in LQconfig.lua. So to enter 15 bars of rest, you would type 7, 1, 5, enter on the numeric keypad.
+
+8 is for entering tuplets. The 8 key enters \tuplet, then enters data entry mode for the numbers. The enter key leaves data entry mode and adds the curly bracket " { ", ready for note entry. So for quintuplets you would press 8, 5, /, 4, enter; which would type " \tuplet 5/4 {"
+
+If you only ever use triplets, you may want to make tuplets into a simple string such as:
+  ["8"] = " \\tuplet 3/2 {", 
+(in LQkeyboardEvents.lua)
+
+9 just adds a right curly bracket " }"
+
++ alternates between entering left and right slurs: " (" and " )"
+
+= or / adds a tie "~"
+
+. adds a dot to the rhythm
+
+* changes the previous note enharmonically, for example cis to des. Press again to cycle between possibilities.
+
+The Enter key either exits data entry mode, or adds a bar check and newline: " |\n"
+
+IMPLEMENTATION
+
+LilyQuick intercepts keystrokes from the computer keyboard. If they’re not from the numeric keypad, they are sent straight on to the system. If they are, they are sent to the Lua program, which can create vitual keystrokes. At the moment it can send any character that can be typed on the regular part of the keyboard using the shift key. This includes all characters I regularly use for inputting Lilypond code. I don’t know enough about non-English keyboard layouts, and whether people would want to enter non-ASCII characters when entering notes in Lilypond. It shouldn’t be too hard to add this feature if the need arises.
+
+What LilyQuick does with incoming keystrokes is defined in LQkeyboardEvents.lua
+
+Intercepting keystrokes requires superuser privileges (sudo).
+
+CUSTOMIZATION
+LQconfig.lua contains a number of options you may wish to change, such as absolute/relative note entry, MIDI output channel etc. See the INSTALL file for more information on deviceName and MIDIKeyboardName. The file LQkeyboardEvents.lua determines how incoming keystrokes are handled, and is completely customizable. To type a simple string, just include it (like the entry for "9"). Otherwise the entry should be a table containing a function, and the parameter to send to it. To send multiple parameters, put them in a table (like the function Alternate).
+
+TODO
+- Allow make install to put the executable into some /bin directory. Not sure how to tell it where the Lua scripts are yet.
+- Easier time signature changing, either through the command line or the numeric keypad.
+- Tracking note values entered to allow automatic bar checks/new lines.
+
+
+
+
+

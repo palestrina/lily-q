@@ -1,0 +1,81 @@
+Based on my fresh install of vanilla Debian, hopefully you should only need to install a couple of things.
+
+LUA 5.3
+Most of LilyQuick is written in Lua 5.3. I have almost always found Lua easy to install. First download Lua from here:
+
+https://www.lua.org/ftp/
+
+In a terminal, navigate to the uncompressed folder. Type
+
+> sudo make linux
+
+then:
+
+> sudo make install
+
+My Debian installation needed libreadline-dev to install Lua. If this is missing, type:
+
+> sudo apt-get libreadline-dev
+
+Then make and make install. More information at http://www.lua.org/manual/5.3/readme.html
+
+ALSA
+You probably have Alsa installed, but you need the development library:
+
+> sudo apt-get libasound2-dev
+
+COMPILING
+Then (unless I’ve forgotten something), in a terminal, navigate to the directory this file is in. Type:
+
+> make
+
+Hopefully GCC is installed. If it isn’t,
+
+> sudo install gcc
+
+should work.
+
+RUNNING
+Type
+
+> sudo ./lq
+
+to run LilyQuick (intercepting keystrokes requires superuser privileges).
+
+
+COMPUTER KEYBOARD
+If compilation was successful, you should have an executable file called lq in this directory.
+Now open the file LQconfig.lua for editing. For LilyQuick to find your computer keyboard you need to give it a file name. In Debian, it can be found in a directory called /dev/input/by-id. Here’s what I see.
+
+> cd /dev/input/by-id
+/dev/input/by-id$ ls
+
+usb-Apple__Inc_Apple_Keyboard-event-if01
+usb-Apple__Inc_Apple_Keyboard-event-kbd
+usb-Logitech_USB-PS_2_Optical_Mouse-event-mouse
+usb-Logitech_USB-PS_2_Optical_Mouse-mouse
+
+From this I can put:
+deviceName = "/dev/input/by-id/usb-Apple__Inc_Apple_Keyboard-event-kbd"
+
+into LQconfig.lua.
+
+MIDI KEYBOARD
+LilyQuick will attempt to connect to your MIDI keyboard. It just needs to be able to identify it uniquely. In the terminal type:
+
+> amidi -l
+Dir Device    Name
+I   hw:2,0,0  KeyStudio MIDI 1
+
+The device ID can potentially change, so LilyQuick works out the device ID from the name. So my LQconfig.lua file says:
+
+MIDIKeyboardName = "KeyStudio MIDI"
+
+RUNNING QSYNTH OR FLUIDSYNTH
+For convenience, LilyQuick will attempt to start a synthesizer when it starts, then connect to it. The file Linux.lua does a couple of Linux-specific things, and defines the command that LilyQuick will use to run the synthesizer. For best results, replace vaughan with your username in this line:
+
+local OpenSynthCommand = [[su -c "qsynth &" vaughan]]
+
+to run Qsynth as yourself rather than as root. Of course, you may wish to run Fluidsynth directly.
+
+
