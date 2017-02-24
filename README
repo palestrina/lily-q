@@ -33,6 +33,16 @@ If you only ever use triplets, you may want to make tuplets into a simple string
 
 The Enter key either exits data entry mode, or adds a bar check and newline: " |\n"
 
+F8/F15 exits LilyQuick. Because I don’t know anything about signals, you need to press a key on your MIDI keyboard to exit properly.
+
+F9/F16 changes the key sharpwards. LilyQuick will play a G to signify one sharp, up to a C# to signify seven sharps. If you want sharps and you’re getting flats, try changing the key.
+
+F10/F17 changes the key flatwards
+
+In C major, LilyQuick will type a chromatic scale as follows: c cis d es e f fis g gis a bes b.
+
+F11/F18 and F12/F19 (and any other numeric key) can be customized at your pleasure.
+
 IMPLEMENTATION
 
 LilyQuick intercepts keystrokes from the computer keyboard. If they’re not from the numeric keypad, they are sent straight on to the system. If they are, they are sent to the Lua program, which can create vitual keystrokes. At the moment it can send any character that can be typed on the regular part of the keyboard using the shift key. This includes all characters I regularly use for inputting Lilypond code. I don’t know enough about non-English keyboard layouts, and whether people would want to enter non-ASCII characters when entering notes in Lilypond. It shouldn’t be too hard to add this feature if the need arises.
