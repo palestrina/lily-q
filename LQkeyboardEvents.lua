@@ -24,12 +24,12 @@ keystrokesInward = {
     ["\010"] = { AddFlat }, -- F10 or F17
     ["\011"] = nil, -- F11 or F18
     ["\012"] = nil, -- F12 or F19
-    ["C"] = { PerformUndo }, -- clear
+    ["C"] = { PerformUndo }, -- clear/Numlock
     ["="] = "~", 
     ["."] = { AddDot },
     ["+"] = { Alternate, { " ( ", " ) " } }, 
 	["*"] = { EnharmonicChange },
-	["-"] = "--",
+	["-"] = "--", -- or your choice of articulation
     ["E"] = { EnterKey },
     ["/"] = "~",
 }

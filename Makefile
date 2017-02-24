@@ -1,3 +1,4 @@
+# Don’t look at this makefile. If you know anything about Make it will make your eyes bleed.
 
 all:
 	cd LuaSource && make linux

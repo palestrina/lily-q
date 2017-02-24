@@ -553,11 +553,15 @@ int main(int argc, char* argv[])
     strcpy(workingDir, myDir);
     if (luaL_dofile(L, strcat(workingDir, "/LilyQuick.lua")))
         printf("%s\n", lua_tostring(L, -1));
+	
     memset(workingDir, 0, dirSize);
     strcpy(workingDir, myDir);
     if (luaL_dofile(L, strcat(workingDir, "/Linux.lua")))
         printf("%s\n", lua_tostring(L, -1));
-
+	i = lua_toboolean(L, -1);
+	if (i) {
+		return 1;
+	}
     free(workingDir);
     free(myDir);
 //*

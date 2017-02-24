@@ -1,5 +1,10 @@
 VERSION = "0.9" .. utf8.char(0x3b2) -- beta
 
+if _VERSION ~= "Lua 5.3" then
+	print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
+	return true
+end
+
 local gmatch = string.gmatch
 local byte = string.byte
 local remove = table.remove
@@ -432,5 +437,7 @@ do
     print("Press " .. f .. " and a key on the MIDI keyboard to exit.") 
     VERSION = nil 
 end
+
+return false
 
 

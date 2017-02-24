@@ -48,6 +48,7 @@ TODO
 - Allow make install to put the executable into some /bin directory. Not sure how to tell it where the Lua scripts are yet.
 - Easier time signature changing, either through the command line or the numeric keypad.
 - Tracking note values entered to allow automatic bar checks/new lines.
+- Allow entry of higher UTF-8 characters and different keyboard layouts.
 
 
 
