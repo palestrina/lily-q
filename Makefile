@@ -5,7 +5,7 @@ all:
 	rm LuaSource/*.o
 	rm LuaSource/lua
 	rm LuaSource/luac
-	gcc -ILuaSource -LLuaSource -o lq LilyQuick.c -ldl -Bstatic -lm \
-		-llua -lpthread -lasound
+	gcc -ILuaSource -LLuaSource -o lq LilyQuick.c -ldl -lasound \
+		-lpthread -llua -lm
 	rm LuaSource/liblua.a
 
