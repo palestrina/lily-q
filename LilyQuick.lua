@@ -1,4 +1,4 @@
-VERSION = "0.9" .. utf8.char(0x3b2) -- beta
+VERSION = "0.91" .. utf8.char(0x3b2) -- beta
 
 if _VERSION ~= "Lua 5.3" then
 	print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
@@ -34,6 +34,16 @@ local longRest = "R1*"
 -- ROOT has been pushed by the C caller
 dofile(ROOT .. "/Auxillary_stuff.lua")
 dofile(ROOT .. "/LQconfig.lua")
+
+-- LQExtraSettings.lua is my personal file so I can have my own settings
+do
+	local F = io.open(ROOT .. "/LQExtraSettings.lua", "r")
+	if F then
+		F:close()
+		dofile(ROOT .. "/LQExtraSettings.lua")
+	end
+end
+
 
 do
     local t = noteNamesInternational.nederlands
@@ -295,6 +305,12 @@ end
 
 if fullRest then
 	longRest = "R" .. fullRest .. "*"
+end
+
+if type(LQCustomKeyboardEvents) == "table" then
+	for k, v in pairs(LQCustomKeyboardEvents) do
+		keystrokesInward[k] = v
+	end
 end
 
 local function ParseForMIDIEvents(packet)

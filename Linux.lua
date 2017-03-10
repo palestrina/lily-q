@@ -7,15 +7,39 @@
 -- need to be escaped.
 -- see https://www.lua.org/manual/5.3/manual.html#3.1
 
-local OpenSynthCommand = [[su -c "qsynth &" vaughan]]
+local OpenSynthCommand = [[su -c "qsynth --midi-driver=alsa_seq &" vaughan]]
 -- (replace vaughan with your username)
 
 -- This runs Qsynth as user vaughan. Running as root may lose existing settings.
 -- To run as root, a simpler alternative is:
--- local OpenSynthCommand = "qsynth &"
+-- local OpenSynthCommand = "qsynth --midi-driver=alsa_seq &"
 
 LinuxOpenSynth = function()
+	if quitSynthOnOpen then
+		QuitSynth()
+	end
     local success, message, code = os.execute(OpenSynthCommand)
+	if not quitSynthOnClose then
+		QuitSynth = nil -- will now not be called on quitting
+	end
+end
+
+-- Routine to close Qsynth either before 
+
+do
+	local synth = "qsynth" -- change to fluidsynth if you don't use Qsynth
+	local fail = false
+	QuitSynth = function()
+		local P = io.popen("pidof " .. synth)
+		if P then
+			local pid = P:read("a"):match("%d+")
+			if pid then
+				os.execute("kill " .. pid)
+			end
+		else
+			print("LilyQuick - pidof failed!")
+		end
+	end
 end
 
 --[=[

@@ -357,7 +357,7 @@ static void * KeypadInput()
                    TODO: fix other function keys
                 */
                 if (fixFunctionKeys) {
-                    if (ev.code == KEY_BRIGHTNESSUP)
+                    if (ev.code ==KEY_BRIGHTNESSUP)
                         ev.code = KEY_F2;
                 }
                 
@@ -506,6 +506,15 @@ void *MIDIInput()
 
     snd_rawmidi_close(handle_in);
     snd_rawmidi_close(handle_out);
+
+	// Quit synthesizer if needed
+	pthread_mutex_lock(&myMutex);
+	lua_settop(MIDIstack, 0); // no more need for the rest of the stack
+	lua_getglobal(MIDIstack, "QuitSynth");
+	if lua_isfunction(MIDIstack, -1) {
+		lua_call(MIDIstack, 0, 0);
+	}
+	pthread_mutex_unlock(&myMutex);
 
     pthread_exit(NULL);
     return NULL;

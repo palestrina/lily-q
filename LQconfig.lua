@@ -21,13 +21,13 @@ WeirdDamperPedal = false
 PreferredPatch = 1 -- Bright piano works nicely in Fluidsynth
 
 -- Input in absolute mode or relative mode?
-AbsoluteMode = false
+AbsoluteMode = true
 
 -- add other languages to Auxillary_stuff.lua if needed
 inputLanguage = "nederlands"
 
 -- I prefer aes to as and ees to es
-useAesEes = true
+useAesEes = false
 
 -- if this is set to true, the 3 key will produce \breve instead of 32
 useLongValues = false
@@ -38,5 +38,14 @@ useLongValues = false
 fullRest = "1" 
 
 -- Debian insists that F2 is monitor brightness. This makes it F2
-FixFunctionKeys = true
+fixFunctionKeys = false
+
+-- if this is true, LilyQuick will attempt to run the function CloseSynth
+-- (defined in Linux.lua) on closing. You may wish to customise that function.
+quitSynthOnClose = true
+
+-- if this is true, LilyQuick will attempt to run CloseSynth before opening
+-- its own synth. This may be useful if you normally use your synth with
+-- different settings (oss instead of alsa_seq for example)
+quitSynthOnOpen = false
 

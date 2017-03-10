@@ -45,14 +45,14 @@ F11/F18 and F12/F19 (and any other numeric key) can be customized at your pleasu
 
 IMPLEMENTATION
 
-LilyQuick intercepts keystrokes from the computer keyboard. If they’re not from the numeric keypad, they are sent straight on to the system. If they are, they are sent to the Lua program, which can create vitual keystrokes. At the moment it can send any character that can be typed on the regular part of the keyboard using the shift key. This includes all characters I regularly use for inputting Lilypond code. I don’t know enough about non-English keyboard layouts, and whether people would want to enter non-ASCII characters when entering notes in Lilypond. It shouldn’t be too hard to add this feature if the need arises.
+LilyQuick intercepts keystrokes from the computer keyboard. If they’re not from the numeric keypad, they are sent straight on to the system. If they are, they are sent to the Lua program, which can create vitual keystrokes. At the moment it can send any character that can be typed on the regular part of the computer keyboard using the shift key. This includes all characters I regularly use for inputting Lilypond code. I don’t know enough about non-English keyboard layouts, and whether people would want to enter non-ASCII characters when entering notes in Lilypond. It shouldn’t be too hard to add this feature if the need arises.
 
 What LilyQuick does with incoming keystrokes is defined in LQkeyboardEvents.lua
 
-Intercepting keystrokes requires superuser privileges (sudo).
+Intercepting computer keyboard keystrokes requires superuser privileges (sudo).
 
 CUSTOMIZATION
-LQconfig.lua contains a number of options you may wish to change, such as absolute/relative note entry, MIDI output channel etc. See the INSTALL file for more information on deviceName and MIDIKeyboardName. The file LQkeyboardEvents.lua determines how incoming keystrokes are handled, and is completely customizable. To type a simple string, just include it (like the entry for "9"). Otherwise the entry should be a table containing a function, and the parameter to send to it. To send multiple parameters, put them in a table (like the function Alternate).
+LQconfig.lua contains a number of options you may wish to change, such as absolute/relative note entry, MIDI output channel etc. See the INSTALL file for more information on deviceName and MIDIKeyboardName. The file LQkeyboardEvents.lua determines how incoming computer keyboard keystrokes are handled, and is completely customizable. To type a simple string, just include it (like the entry for "9"). Otherwise the entry should be a table containing a function, and the parameter to send to it. To send multiple parameters, put them in a table (like the function Alternate).
 
 TODO
 - Allow make install to put the executable into some /bin directory. Not sure how to tell it where the Lua scripts are yet.
