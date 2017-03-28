@@ -568,6 +568,7 @@ int main(int argc, char* argv[])
     if (luaL_dofile(L, strcat(workingDir, "/Linux.lua")))
         printf("%s\n", lua_tostring(L, -1));
 	i = lua_toboolean(L, -1);
+	lua_pop(L, 1);
 	if (i) {
 		return 1;
 	}

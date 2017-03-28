@@ -129,8 +129,10 @@ end
 
 if not AlsaMIDIDeviceID then
     print("ALSA MIDI device not found!")
+	return true
 end
 
+return false
 --AlsaMIDIDeviceID = AlsaMIDIDeviceID or "hw:2,0,0"
 
 

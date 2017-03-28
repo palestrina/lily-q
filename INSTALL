@@ -1,4 +1,4 @@
-Based on my fresh install of vanilla Debian, hopefully you should only need to install a couple of things.
+Based on my fresh install of vanilla Debian, hopefully you should only need to install a couple of things. 
 
 LUA 5.3
 Most of LilyQuick is written in Lua 5.3. It includes Lua 5.3.4 statically to avoid versioning problems. My Debian installation needed libreadline-dev to install Lua. If this is missing, type:
@@ -17,18 +17,22 @@ Then (unless I’ve forgotten something), in a terminal, navigate to the directo
 
 > make
 
-Hopefully GCC is installed. If it isn’t,
+The make install script adds an alias to LilyQuick for your convenience. The alias includes sudo which is why it asks for your password. Sudo is necessary as intercepting keystrokes requires superuser privileges.
+
+> make install
+
+Make may fail if GCC is not installed:
 
 > sudo install gcc
 
-should work.
+should fix this.
 
 RUNNING
-Type
+Open a new terminal window (as the new alias won’t be picked up by your current window) and type:
 
-> sudo ./lq
+> lq
 
-to run LilyQuick (intercepting keystrokes requires superuser privileges).
+to run LilyQuick (and type your password for sudo which is in the alias).
 
 COMPUTER KEYBOARD
 If compilation was successful, you should have an executable file called lq in this directory.
@@ -59,10 +63,24 @@ The device ID can potentially change, so LilyQuick works out the device ID from 
 MIDIKeyboardName = "KeyStudio MIDI"
 
 RUNNING QSYNTH OR FLUIDSYNTH
-For convenience, LilyQuick will attempt to start a synthesizer when it starts, then connect to it. The file Linux.lua does a couple of Linux-specific things, and defines the command that LilyQuick will use to run the synthesizer. For best results, replace vaughan with your username in this line:
+For convenience, LilyQuick will attempt to start a synthesizer when it starts, then connect to it. The file Linux.lua does a couple of Linux-specific things, and defines the command that LilyQuick will use to run the synthesizer. Replace yourusername with your username in this line:
 
-local OpenSynthCommand = [[su -c "qsynth &" vaughan]]
+local OpenSynthCommand = [[su -c "qsynth --midi-driver=alsa_seq &" yourusername]]
 
-to run Qsynth as yourself rather than as root. Of course, you may wish to run Fluidsynth directly.
+to run Qsynth as yourself rather than as root. Of course, you may wish to run Fluidsynth directly. LilyQuick needs Qsynth to use the alsa_seq MIDI driver. Unfortunately when you open Qsynth this way, the MIDI driver will remain on alsa_seq. If you normally use a different driver, in the Gnome desktop environment you can edit the file:
+
+/usr/share/applications/qsynth.desktop
+
+> sudo nano /usr/share/applications/qsynth.desktop
+
+Change the Exec= line to
+
+Exec=/usr/bin/qsynth --midi-driver=oss
+
+or whichever MIDI driver you normally use. Then when you open Qsynth with the GUI, it will use the correct MIDI driver.
+
+
+
+
 
 
