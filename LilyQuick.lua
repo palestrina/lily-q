@@ -1,4 +1,4 @@
-VERSION = "0.91" .. utf8.char(0x3b2) -- beta
+VERSION = "0.92" .. utf8.char(0x3b2) -- beta
 
 if _VERSION ~= "Lua 5.3" then
 	print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
