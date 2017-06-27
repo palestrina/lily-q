@@ -18,7 +18,9 @@ keystrokesInward = {
     ["5"] = { AddNote, "2" },
     ["6"] = { AddNote, "1" },
 	["7"] = { AddWholeBarRestsInit },
-	["8"] = { Tuplets, "3/2" }, 
+	["8"] = { Tuplets },
+	-- for fixed tuplets, use this line
+	-- ["8"] = { Tuplets, "3/2" },
     ["9"] = { CloseBrackets },
     ["\009"] = { InitChangeKey }, -- F9 or F16
     ["SHIFT \009"] = { ToggleAbsoluteRelative },
