@@ -1,8 +1,7 @@
-VERSION = "0.92" .. utf8.char(0x3b2) -- beta
-
+VERSION = "0.94" .. utf8.char(0x3b2) -- beta
 if _VERSION ~= "Lua 5.3" then
-	print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
-	return true
+    print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
+    return true
 end
 
 local gmatch = string.gmatch
@@ -10,7 +9,8 @@ local byte = string.byte
 local remove = table.remove
 local char = string.char
 local floor = math.floor
-
+local math_abs = math.abs
+local string_rep = string.rep
 local lastNote = 60 -- assume middle C
 local lastNoteName = "c"
 local lastRhythm = false
@@ -18,18 +18,26 @@ local lastChord = false
 local key = 0
 local dataEntry = false
 local enteringTuplet = false
+local tupletRatio
 local hasRhythmNumberBeenSent = false
-
 local ProcessEvent = {}
 local NotesCurrentlyOn = {}
-eventsSent = {}
+eventsSent = { n = 0 }
 --local keysSent = {}
 local keyNoteSent = false
 keyNoteOffTime = math.huge
-
 local sendStraightThrough = false
 local melismaOn = true
 local longRest = "R1*"
+local auxiliaryKeystroke = false
+local rhythmMultiplier = 1.0
+local cumulativeNoteLength = 0.0
+local deleteOneChar = "()\127 "
+local currentUndo
+local maxUndos = 10
+local bracketStack = {}
+local barLength
+local barLengthNumber = 1.0
 
 -- ROOT has been pushed by the C caller
 dofile(ROOT .. "/Auxillary_stuff.lua")
@@ -37,17 +45,18 @@ dofile(ROOT .. "/LQconfig.lua")
 
 -- LQExtraSettings.lua is my personal file so I can have my own settings
 do
-	local F = io.open(ROOT .. "/LQExtraSettings.lua", "r")
-	if F then
-		F:close()
-		dofile(ROOT .. "/LQExtraSettings.lua")
-	end
+ local F = io.open(ROOT .. "/LQExtraSettings.lua", "r")
+ if F then
+  F:close()
+  dofile(ROOT .. "/LQExtraSettings.lua")
+ end
 end
-
 
 do
     local t = noteNamesInternational.nederlands
     if useAesEes then
+        t[5] = "aeses"
+        t[6] = "eeses"
         t[12] = "aes"
         t[13] = "ees"
     end
@@ -55,14 +64,12 @@ end
 
 inputLanguage = inputLanguage or "nederlands"
 local noteNames = noteNamesInternational[inputLanguage] or noteNamesInternational.nederlands
-
 local namesToNumbers = {}
 for i, name in ipairs(noteNames) do
     namesToNumbers[name] = i
 end
 
 local MyMIDIOutputChannel
-
 if MIDIOutputChannel then 
     MIDIOutputChannel = MIDIOutputChannel - 1
     MyMIDIOutputChannel = MIDIOutputChannel
@@ -70,7 +77,6 @@ end
 
 local OutputVelocity = OutputVelocity
 local WeirdDamperPedal = WeirdDamperPedal
-
 if args[1] then
     deviceName = args[1]
 end
@@ -78,15 +84,6 @@ end
 local function AddToTable(t, ...)
     for i = 1, select("#", ...) do
         t[#t+1] = select(i, ...)
-    end
-end
-
-local function TurnOffKeyNote()
-    local t = GetTime()
-    if t > keyNoteOffTime then   
-        keyNoteOffTime = math.huge
-        SendMidiEvent(0x80 + MyMIDIOutputChannel, keyNoteSent, 0x40)
-        keyNoteSent = false
     end
 end
 
@@ -101,16 +98,76 @@ local function ListNoteOns()
     return t
 end
 
-local function ChangeKey(modifier)
+local function IsClose(a, b, tolerance)
+    tolerance = tolerance or 1.0e-6
+    return math_abs(a-b) < tolerance
+end
+
+local function CheckPowerTwo(n)
+    n = tonumber(n)
+    if n then
+        local l = math.log(n, 2)
+        if l == math.floor(l) then
+            return n
+        end  
+    end
+    return false
+end
+
+local myDotValue
+local dotSuffix = {
+    [0] = "",
+    [584963] = ".",
+    [807355] = "..",
+    [906891] = "...",
+}
+local function DurationToValue(d)
+    d = d * 2048.0 -- avoid negative log results (problematic)
+    local value, dots = math.modf(math.log(d, 2))
+    local i = math.floor(dots * 1.0e6 + 0.5)
+    dots = dotSuffix[math.floor(dots * 1.0e6 + 0.5)]
+    value = value - 11.0
+    if value < 1 then
+        value = tostring(math.floor(2^-value+0.5))
+    elseif value == 1.0 then
+        value = "\\breve"
+    elseif value == 2.0 then
+        value = "\\longa"
+    end
+    return dots and value .. dots
+end
+
+local function ValueToDuration(value)
+    local main, dots = value:match("([^%.]+)(%.*)")
+    local dotValue
+    if main == "\\breve" then
+        value = 2.0
+        dotValue = 1.0
+    elseif main == "\\longa" then
+        value = 4.0
+        dotValue = 2.0
+    else
+        value = 1.0 / tonumber(main)
+        dotValue = value * 0.5
+    end
+    for i = 1, #dots do
+        value = value + dotValue
+        dotValue = dotValue * 0.5
+    end
+    return value
+end
+
+local function ChangeKey(newKey)
     key = key or 0
     local oldKey = key
-    key = key + modifier
+    key = newKey
     if key > 7 then
         key = 7
     elseif key < -7 then
         key = -7
     end
     if oldKey ~= key then
+    --[[
         if keyNoteSent then
             -- cancel last note
             SendMidiEvent(0x80 + MyMIDIOutputChannel, keyNotes[oldKey], 0x40)
@@ -118,15 +175,41 @@ local function ChangeKey(modifier)
         SendMidiEvent(0x90 + MyMIDIOutputChannel, keyNotes[key], 0x40)
         keyNoteOffTime = GetTime() + 1.5
         keyNoteSent = keyNotes[key]
+        --]]
+        SendMidiEvent(0x90 + MyMIDIOutputChannel, keyNotes[key], 0x40)
+        ScheduleEvent(GetTime() + 0.618033989, { SendMidiEvent, 0x80 + MyMIDIOutputChannel, keyNotes[key], 0x40 })
     end
 end
 
-function AddSharp()
-    ChangeKey(1)
+local myModifier
+local function ChangingKey(c)
+    if c == "-" then
+        myModifier = -myModifier
+    elseif c:match("[0-7]") then
+        local k = tonumber(c) * myModifier
+        local plural = "s"
+        if math.abs(k) == 1 then
+            plural = ""
+        end
+        ChangeKey(k)
+        local m
+        if k < 1 then
+            m = "New key: " .. -k .. " flat" .. plural .. "."
+        elseif k > 1 then
+            m = "New key: " .. k .. " sharp" .. plural .. "."
+        else
+            m = "New key: no sharps or flats."
+        end
+        print(m)
+        auxiliaryKeystroke = false
+    else
+        print("Valid keys are from -7 to 7")
+    end
 end
 
-function AddFlat()
-    ChangeKey(-1)
+function InitChangeKey()
+    auxiliaryKeystroke = ChangingKey
+    myModifier = 1
 end
 
 function Alternate(t)
@@ -140,35 +223,69 @@ function Alternate(t)
     SendString(code)
 end
 
-function EnterKey()
-    if dataEntry then -- The Enter key ends data entry
-        if enteringTuplet then
-            enteringTuplet = false
-            SendString(" {") -- begin the tuplet bracket
-            lastRhythm = false
-        end
-        dataEntry = false
-    else
-        SendString(" |\n")
-    end
- end
-
 function PerformUndo()
-    local n = #(eventsSent)
+    local n = eventsSent.n
+    local myUndo = eventsSent[n]
     --print("Undo events: " .. n)
-    if n > 0 then
-        local myUndo = eventsSent[n]
+    if myUndo then
         eventsSent[n] = nil
-        local s = myUndo.codeSent
-        SendString(string.rep("\127", #(myUndo.codeSent)), true)
+        eventsSent.n = eventsSent.n - 1
+        local s = myUndo.stringSent
+        --go through the UTF-8 codepoints in the string in reverse
+        local l = utf8.len(s)
+        if l then
+            for p = l, 1, -1 do
+                local c = utf8.codepoint(s, utf8.offset(s, p))
+                --print(c)
+                if c == 10 then -- "\n"
+                    SendKeyCombos("()END (S)HOME ()BACKSPACE ()BACKSPACE")
+                else
+                    SendKeyCombos("()BACKSPACE")
+                end
+            end
+        end
         lastNote = myUndo.lastNote
         lastNoteName = myUndo.lastNoteName
-        lastRhythm = myUndo.lastRhythm   
+        lastRhythm = myUndo.lastRhythm
+        cumulativeNoteLength = myUndo.cumulativeNoteLength
+        tupletRatio = myUndo.tupletRatio
+        myDotValue = myUndo.myDotValue
+        rhythmMultiplier = myUndo.rhythmMultiplier
+        bracketStack[#bracketStack+1] = myUndo.bracketStack -- may well be nil
+    end
+end
+
+local barCheck = " |\n"
+function EnterKey(shifted)
+    if explicitRhythmsByLine then
+        lastRhythm = false
+    end
+    cumulativeNoteLength = 0.0
+    myDotValue = false
+    if shifted then
+        SendString("") -- when shifted this just resets the bar's rhythmic values
+    else
+        SendString(barCheck)
     end
 end
 
 function AddDot()
-    if lastRhythm and eventsSent[1] then
+    if lastRhythm and next(eventsSent) then
+        local lineEndingSuffix = ""
+        if rhythmCounting then
+            local thisLength = myDotValue
+            local total = cumulativeNoteLength + thisLength
+            if IsClose(total, barLengthNumber) then -- end of a bar
+                lineEndingSuffix = " |\n"
+                cumulativeNoteLength = 0.0
+                myDotValue = false
+            elseif total < barLengthNumber then -- a tie is intended
+                cumulativeNoteLength = total
+            else
+                return false
+            end
+            myDotValue = thisLength * 0.5
+        end
         lastRhythm = lastRhythm .. "."
         if hasRhythmNumberBeenSent then
             SendString(".")
@@ -176,14 +293,15 @@ function AddDot()
             SendString(lastRhythm)
             hasRhythmNumberBeenSent = true
         end
+        SendString(lineEndingSuffix)
     end
     return true
 end
 
 function EnharmonicChange()
-    local n = #(eventsSent)
-    if n > 0 then
-        local lastEvent = eventsSent[n]
+    local n = eventsSent.n
+    local lastEvent = eventsSent[n]
+    if lastEvent then
         local preamble, noteName, theRest = string.match(lastEvent.codeSent, "(%A*)(%a+)(.*)")
         if preamble and noteName and theRest then 
             local note = namesToNumbers[noteName]
@@ -204,13 +322,18 @@ local absoluteOffsets = {
     [noteNames[2]] = 1, -- add one octave for ceses
     [noteNames[9]] = 1, -- ces
     [noteNames[28]] = -1, -- bis
-    [noteNames[35]] = -1,
+    [noteNames[35]] = -1, -- bisis
  }
 setmetatable(absoluteOffsets,
     { __index = function(t, k) rawset(t, k, 0) return 0 end })
     
-
+local waitingForNote = true
 local function FindNoteName(note, lastNote, lastNoteName)
+    -- in relative mode, never put octave indications on the first note
+    if waitingForNote then
+        lastNote = note
+        waitingForNote = false
+    end
     local relative = (note - keyNotes[key]) % 12
     local name = noteNames[ 16 + key + offsets[relative] ]
     local stepDiff = (steps[name:sub(1,1)] + 7 - steps[lastNoteName:sub(1,1)]) % 7
@@ -219,10 +342,10 @@ local function FindNoteName(note, lastNote, lastNoteName)
     end
     local octaves
     if AbsoluteMode then
-        octaves = (floor(note / 12)) - 4 + absoluteOffsets[name]
+        octaves = (note // 12) - 4 + absoluteOffsets[name]
     else
         local expected = offsetsToIntervals[namesToNumbers[name] - namesToNumbers[lastNoteName]]
-        octaves = (expected - (lastNote - note)) / 12
+        octaves = (expected - (lastNote - note)) // 12
     end
     
     local suffix = ""
@@ -234,28 +357,175 @@ local function FindNoteName(note, lastNote, lastNoteName)
     return name, suffix
 end
 
-function AddWholeBarRests()
-	SendString(longRest)
-    dataEntry = true
-	lastRhythm = false
+local function AddingWholeBarRests(c)
+    if c == "E" then
+        lastRhythm = false
+        myDotValue = false
+        cumulativeNoteLength = 0.0
+        SendString("\n") -- maybe " |\n" if you prefer a bar check
+        auxiliaryKeystroke = false
+    elseif c:match("%d") then
+        SendString(c)
+    end
 end
 
-function Tuplets()
-    SendString(" \\tuplet ")
-    dataEntry = true
-    enteringTuplet = true
+function AddWholeBarRestsInit()
+    SendString(longRest)
+    auxiliaryKeystroke = AddingWholeBarRests
 end
 
-function AddNote(value)
+local function RevertRhythm(ratio)
+    rhythmMultiplier = rhythmMultiplier / ratio
+    if IsClose(rhythmMultiplier, 1.0) then
+        rhythmMultiplier = 1.0
+    end
+end
+
+local myTupletString = " \\tuplet "
+local function EnteringTuplets(c)
+    if c:match("[%d%/]") then
+        tupletRatio = tupletRatio .. c
+        SendString(c)
+    elseif c == "E" then -- enter key
+        local ratio = 1.0
+        local num, den = tupletRatio:match("(%d+)%/(%d+)")
+        if num then
+            ratio = tonumber(den) / tonumber(num)
+            rhythmMultiplier = ratio
+        end
+        bracketStack[#bracketStack+1] = { f = RevertRhythm, a = ratio }
+        SendString(" {")
+        auxiliaryKeystroke = false
+    elseif c == "C" then -- clear key
+        if #tupletRatio > 0 then
+            tupletRatio = tupletRatio:sub(1, -2) -- chop off the last character
+            SendString("\127")
+        else
+            SendString(string_rep("\127", #myTupletString))
+            auxiliaryKeystroke = false
+        end
+    end
+end
+
+function Tuplets(ratio)
+    if ratio then
+        ratio = ratio:match("%d+%/%d+")
+    end
+    SendString(myTupletString)
+    myDotValue = false
+    if ratio then
+        tupletRatio = ratio
+        SendString(ratio)
+        EnteringTuplets("E") -- simulate the Enter key
+    else
+        auxiliaryKeystroke = EnteringTuplets
+        tupletRatio = ""
+    end
+end
+
+myEndBracket = " }"
+function CloseBrackets()
+    if bracketStack[1] then
+        local t = bracketStack[#bracketStack]
+        currentUndo.bracketStack = t
+        bracketStack[#bracketStack] = nil
+        t.f(t.a)
+    end
+    SendString(myEndBracket)
+end
+
+local function EnteringBarLength(c)
+    if c:match("[%d%/%.]") then
+        barLength = barLength .. c
+    elseif c == "+" then
+        barLength = barLength .. "\\breve"
+    elseif c == "E" then
+        fullRest = barLength
+        print("Bar length entered: " .. fullRest)
+        fullRest = fullRest:gsub("%\\breve", "B") -- would have used 0.5 but dots are confusing
+        if fullRest:match("%d+%/[%d+B]+") then
+            local num, den, dots = fullRest:match("(%d+)%/([B%d]+)(%.*)")
+            if den == "B" then
+                den = 0.5
+            else
+                den = CheckPowerTwo(den)
+            end
+            if den then
+                den = 1.0 / den
+                local dot = den * 0.5
+                for i = 1, #dots do
+                    barLengthNumber = barLengthNumber + dot
+                    dot = dot * 0.5
+                end
+                barLengthNumber = tonumber(num) * den
+            end
+         else
+            local value, dots = fullRest:match("([%d+B])(%.*)")
+            if value then
+                if value == "B" then
+                    value = 0.5
+                else
+                    value = CheckPowerTwo(value)
+                end
+                if value then
+                    barLengthNumber = 1.0 / value
+                    local dot = barLengthNumber * 0.5
+                    for i = 1, #dots do
+                        barLengthNumber = barLengthNumber + dot
+                        dot = dot * 0.5
+                    end
+                end
+            end
+        end
+        barLength = barLength:gsub("%/", "*")
+        longRest = "R" .. barLength .. "*"
+        auxiliaryKeystroke = false
+        fullRest = barLength
+        cumulativeNoteLength = 0.0
+    end
+end
+
+function SetBarLength()
+    barLength = ""
+    auxiliaryKeystroke = EnteringBarLength
+end
+
+function AddNote(value, isShifted)
+    local lineEndingSuffix = ""
+    local charsSent = 0
+    local eraseLineCode = ""
     value = value or lastRhythm
+    if rhythmCounting then
+        local thisLength = ValueToDuration(value) * rhythmMultiplier
+        local total = cumulativeNoteLength + thisLength
+        myDotValue = thisLength * 0.5
+        if IsClose(total, barLengthNumber) then -- end of a bar
+            lineEndingSuffix = " |\n"
+            charsSent = charsSent + 2
+            eraseLineCode = eraseLine
+            cumulativeNoteLength = 0.0
+            myDotValue = false
+        elseif total > barLengthNumber then -- a tie is intended
+            lineEndingSuffix = "~ |\n"
+            charsSent = charsSent + 3
+            eraseLineCode = eraseLine
+            value = DurationToValue(barLengthNumber - cumulativeNoteLength) or value
+            cumulativeNoteLength = 0.0
+            myDotValue = false
+        else
+            cumulativeNoteLength = total
+        end
+    end
     local name, suffix, chordHash
     local notes = ListNoteOns()
     -- first get its name according to the key
     local note = notes[1]
     if notes[2] then
         chordHash = table.concat(notes, " ")
+    else
+        lastChord = false
     end
-    if value == lastRhythm then
+    if (value == lastRhythm) and (not explicitRhythms) then
         value = ""
         hasRhythmNumberBeenSent = false
     else
@@ -289,28 +559,113 @@ function AddNote(value)
             end
         end
     else
-        name = " r" .. value
+        if isShifted then
+            name = " s" .. value
+        else
+            name = " r" .. value
+        end
     end
     lastChord = lastChord or false
+    if explicitRhythmsByLine and lineEndingSuffix:match("%s%|") then
+        lastRhythm = false
+    end
+    -- close triplet brackets if it is the end of a line
+    -- (this doesn’t allow for tuplets over barlines)
     SendString(name)
-    return hasRhythmNumberBeenSent
+    charsSent = charsSent + #name
+    if lineEndingSuffix ~= "" then
+        while bracketStack[1] do
+            CloseBrackets()
+            charsSent = charsSent + #myEndBracket
+        end
+        SendString(lineEndingSuffix)
+    end
+        return hasRhythmNumberBeenSent
 end
 
-dofile(ROOT .. "/LQkeyboardEvents.lua")
+local noteLengths = {
+    ["5"] = {
+        ["6"] = "64",
+        ["3"] = "32",
+        ["2"] = "16",
+    },
+    ["6"] = {
+        ["6"] = "1",
+        ["3"] = "32",
+        ["2"] = "16",
+    },
+    ["3"] = {
+        ["6"] = "1",
+        ["3"] = "\\breve",
+        ["2"] = "16",
+    },
+    ["2"] = {
+        ["6"] = "1",
+        ["3"] = "\\breve",
+        ["2"] = "\\longa",
+    },
+}    
+local function SettingNoteLengths(c)
+    local t = noteLengths[c]
+    if t then
+        chosenNoteLengths = c
+        for key, length in pairs(t) do
+            keystrokesInward[key][2] = length
+        end
+    end
+    print("Numeric keys and note lengths:")
+    for i = 1, 6 do
+        print(i .. ": " .. keystrokesInward[tostring(i)][2])
+    end
+    
+    auxiliaryKeystroke = false
+end
+
+function InitSetNoteLengths()
+    print("Enter longest note- 2: \\longa, 3: \\breve, 6: 1, 5: 2")
+    auxiliaryKeystroke = SettingNoteLengths
+end
 
 if useLongValues then
-	keystrokesInward["3"][2] = "\\breve"
-	longRest = "R\\breve*"
+    chosenNoteLengths = "3"
+    longRest = "R\\breve*"
+else
+    chosenNoteLengths = "6"
+    longRest = "1*"
 end
 
 if fullRest then
-	longRest = "R" .. fullRest .. "*"
+    longRest = "R" .. fullRest .. "*"
 end
 
+local firstAbsRel = true
+function ToggleAbsoluteRelative()
+    AbsoluteMode = not(AbsoluteMode or firstAbsRel)
+    firstAbsRel = false
+    if AbsoluteMode then
+        print("Absolute mode selected.")
+    else
+        print("Relative mode selected.")
+        waitingForNote = true
+    end
+end
+
+function ToggleRhythmCounting()
+    rhythmCounting = not rhythmCounting
+    if rhythmCounting then
+        print("Rhythm counting on")
+        EnterKey(true) -- reset the start of the bar
+    else
+        print("Rhythm counting off")
+    end
+end
+
+-- NO KEYBOARD FUNCTION INITIALISERS BELOW HERE
+dofile(ROOT .. "/LQkeyboardEvents.lua")
 if type(LQCustomKeyboardEvents) == "table" then
-	for k, v in pairs(LQCustomKeyboardEvents) do
-		keystrokesInward[k] = v
-	end
+ for k, v in pairs(LQCustomKeyboardEvents) do
+  keystrokesInward[k] = v
+ end
 end
 
 local function ParseForMIDIEvents(packet)
@@ -323,11 +678,9 @@ local function ParseForMIDIEvents(packet)
     for midiMessage in gmatch(packet, "[\x90-\x9f][\x00-\x7f]\x00") do -- zero velocity note on
         ProcessEvent.NOTE_OFF(byte(midiMessage, 1, 3))
     end
-
     for midiMessage in gmatch(packet, "[\x80-\x8f][\x00-\x7f][\x00-\x7f]") do
         ProcessEvent.NOTE_OFF(byte(midiMessage, 1, 3))
     end
-
  
     -- control changes
     for midiMessage in gmatch(packet, "[\xb0-\xbf][\x00-\x7f][\x00-\x7f]") do
@@ -350,7 +703,6 @@ end
 
 local DamperOn = false
 local NoteOffQueue = {}
-
 function ProcessEvent.CONTROLLER(channel, controller, value)
     if MyMIDIOutputChannel then
         channel = 0xb0 + MyMIDIOutputChannel
@@ -411,29 +763,44 @@ function MidiPacketReceive(packet)
     print(table.concat(t))
     --]]
     
-    TurnOffKeyNote()
     local noteOns = ParseForMIDIEvents(packet)
 end
 
 function KeystrokeReceived(c, shiftOn)
-    TurnOffKeyNote()
-    if dataEntry and c:match("[%d%p]") then
-        SendString(c)
+    if auxiliaryKeystroke then
+        auxiliaryKeystroke(c)
         return false
+    end
+    if shiftOn and byte(c) < 20 then
+        c = "SHIFT " .. c
     end
     local params = keystrokesInward[c]
     if params then
-        currentUndo = currentUndo or { -- prepare the undo
+        myKeyStrokesSent = {}
+        currentUndo = { -- prepare the undo
             lastNote = lastNote,
             lastNoteName = lastNoteName,
             lastRhythm = lastRhythm,
+            cumulativeNoteLength = cumulativeNoteLength,
+            tupletRatio = tupletRatio,
+            myDotValue = myDotValue,
+            rhythmMultiplier = rhythmMultiplier,
+            
         }
         if type(params) == "table" then
-            hasRhythmNumberBeenSent = params[1](params[2])
+            hasRhythmNumberBeenSent = params[1](params[2], shiftOn)
         else
             --print(params)
             SendString(params)
             hasRhythmNumberBeenSent = false
+        end
+        if myKeyStrokesSent[1] then
+            currentUndo.stringSent = table.concat(myKeyStrokesSent)
+            local n = eventsSent.n + 1
+            eventsSent[n] = currentUndo
+            eventsSent.n = n
+            currentUndo = nil
+            eventsSent[n - maxUndos] = nil
         end
         return true
     else
@@ -443,17 +810,36 @@ function KeystrokeReceived(c, shiftOn)
 end
 
 --]===] 
-
 do
     print("Welcome to LilyQuick version " .. VERSION)
     local f = "F8"
     if AppleExtendedKeyboard then
         f = "F15"
     end
-    print("Press " .. f .. " and a key on the MIDI keyboard to exit.") 
-    VERSION = nil 
+    print("Press " .. f .. " to exit.") 
+    VERSION = nil
+    SettingNoteLengths(chosenNoteLengths)
+    chosenNoteLengths = nil
+    local t = GetTime()
+    local chords = {
+        { 0.6, 0xc0, 1 },
+        { 0.611635, 159, 53, 75 },
+        { 0.80585, 159, 59, 77 },
+        { 0.922082, 159, 63, 71 },
+        { 1.002133, 159, 68, 82 },
+        { 2.168721, 143, 68, 64 },
+        { 2.170743, 143, 63, 64 },
+        { 2.192312, 143, 53, 64 },
+        { 2.202704, 143, 59, 64 },
+    }
+    for i, chord in ipairs(chords) do
+        chord[2] = (chord[2] & 0xf0) | MIDIOutputChannel 
+        local message = string.char(table.unpack(chord, 2))
+        ScheduleEvent(t + chord[1] + 0.5, { SendMidiData, message })
+    end
+    ScheduleEvent(t+5, { SendKeyCombos, "(C)q" })
+    --print(SendKeystroke)
 end
 
 return false
-
 

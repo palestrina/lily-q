@@ -3,7 +3,7 @@ maxUndos = 10
 
 noteNamesInternational = {
     nederlands = {
-        "feses", "ceses", "geses", "deses", "aeses", "eeses", "beses", -- double flats
+        "feses", "ceses", "geses", "deses", "ases", "eses", "beses", -- double flats
         "fes", "ces", "ges", "des", "as", "es", "bes",
         "f", "c", "g", "d", "a", "e", "b",
         "fis", "cis", "gis", "dis", "ais", "eis", "bis",
@@ -76,12 +76,14 @@ steps = {
 
 local char = string.char
 local byte = string.byte
+local tunpack = table.unpack
 
 function RealSendMidiEvent(...)
     local s = ...
     if type(s) == "number" then
         s = char(...)
     end
+    --print(GetTime(), s:byte(1,3))
     SendMidiData(s)
 end
 
@@ -94,6 +96,12 @@ function SendMidiEvent(...)
     MIDIOutputChannel = nil
 end
 
+-- this is sent as the program is exiting
+function AllNotesOff() -- actually all sounds off
+    for channel = 0, 15 do
+        SendMidiEvent(0xb0 | channel, 120, 0)
+    end
+end
 
 -- Keyboard output
 local lower = string.lower
@@ -177,6 +185,10 @@ setmetatable(keyCodes, {
     end })
 
 function SendString(s, deletingFlag)
+    local myGap = gapBetweenKeystrokes or #s > 7
+    if not deletingFlag then
+        myKeyStrokesSent[#myKeyStrokesSent+1] = s
+    end
     for c in s:gmatch(".") do
         local shift = false
         local code = keyCodes[c]
@@ -185,19 +197,19 @@ function SendString(s, deletingFlag)
                 shift = true
                 code = code & removeMask
             end
-            SendKeystroke(code, shift)
+            SendKeystroke(code, shift, myGap)
          end
     end
 	if (not deletingFlag) and currentUndo then
         lastStringSent = s
-        currentUndo.codeSent = s
-        eventsSent[#eventsSent+1] = currentUndo
-        if #eventsSent > maxUndos then
-            table.remove(eventsSent, 1)
-        end
+        --currentUndo.codeSent = s
+        local n = eventsSent.n + 1
+        eventsSent[n] = currentUndo
+        eventsSent.n = n
+        eventsSent[n - maxUndos] = nil
         currentUndo = nil
     end
-
+    gapBetweenKeystrokes = false
 end
 
 --[[
@@ -208,4 +220,49 @@ function PrintMyTable()
 end
 --]]
 
+function DoScheduledEvent(eventTable)
+    local f = eventTable[1]
+    if type(f) == "function" then
+        f(tunpack(eventTable, 2))
+    end
+end
+
+local modifierKeys = {
+    S = 42, -- KEY_LEFTSHIFT
+    A = 56, -- KEY_LEFTALT
+    C = 29, -- KEY_LEFTCTRL
+}
+
+local extraKeys = {
+    BACKSPACE = 14, -- left delete
+    UP = 103,
+    DOWN = 108,
+    LEFT = 105,
+    RIGHT = 106,
+    DELETE = 111, -- right delete
+    HOME = 102,
+    END = 107,
+    PAGEUP = 104,
+    PAGEDOWN = 109,
+}
+
+setmetatable(extraKeys, { __index = keyCodes })
+
+-- This function takes a formatted string and converts it to raw key presses.
+-- Each key press may be preceeded with shift, alt or control in brackets.
+-- So "(AC)DOWN" sends the down arrow with alt and control pressed
+-- Use () for no modifiers
+
+function SendKeyCombos(s)
+    for modifiers, key in s:gmatch("%((%u*)%)(.%u*)") do
+        local codes = {}
+        for m in modifiers:gmatch("%u") do
+            codes[#codes+1] = modifierKeys[m]
+        end
+        codes[#codes+1] = extraKeys[key]
+        if codes[1] then
+            SendKeyCombo(table.unpack(codes))
+        end
+    end
+end
 

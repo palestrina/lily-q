@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <math.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
 #include <pthread.h>
@@ -53,6 +54,12 @@ struct uinput_user_dev uidev;
 struct input_event ev, syncEv, outEv;
 snd_rawmidi_t  *handle_in = 0;
 snd_rawmidi_t  *handle_out = 0;
+
+struct schedule_struct {
+    lua_Number time;
+    int ref;
+};
+
 
 
 
@@ -123,6 +130,64 @@ static int CheckNoDataWaiting(lua_State * L)
 	return 1;
 }
 */
+
+static void *DoEvent(void *twoArgs)
+{
+    struct timespec myGap;
+    struct schedule_struct *args = twoArgs;
+    lua_Number secs, nanos;
+
+    lua_Number gap = args->time - getTimer();
+    if (gap > 0) {
+        nanos = modf(gap, &secs);
+        nanos = nanos * 1.0e9;
+    
+        myGap.tv_sec = (time_t) secs;
+        myGap.tv_nsec = (long) nanos;
+    
+        nanosleep(&myGap, NULL);
+    }
+    if (stillGoing) {
+        pthread_mutex_lock(&myMutex);
+        lua_getglobal(L, "DoScheduledEvent");
+        lua_rawgeti(L, LUA_REGISTRYINDEX, args->ref);
+        //luaL_checktype(L, -1, LUA_TTABLE);
+        //printf("%f\n", getTimer());
+        lua_call(L, 1, 0);
+        luaL_unref(L, LUA_REGISTRYINDEX, args->ref);
+        pthread_mutex_unlock(&myMutex);
+        myGap.tv_sec = 0;
+        myGap.tv_nsec = rand() % 500000000;
+        nanosleep(&myGap, NULL);
+    }
+  
+    pthread_exit(NULL);
+    return NULL;
+}
+
+static int ScheduleEvent(lua_State * L)
+{
+	// The scheduled event comes in a table: add it to the registry
+	int rc;
+	bool flag;
+	pthread_t doEventThread;
+	
+	luaL_checktype(L, 1, LUA_TNUMBER);
+	luaL_checktype(L, 2, LUA_TTABLE);
+	lua_settop(L, 2);
+	struct schedule_struct *myArgs = malloc(sizeof *myArgs);
+	
+	myArgs->ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	myArgs->time = luaL_checknumber(L, 1);
+ 
+    rc = pthread_create(&doEventThread, NULL, &DoEvent, myArgs);
+    if (rc) {
+        printf("Error creating event thread, error no %d\n", rc);
+        return 1;
+    }
+    return 0;
+}
+
 
 static int SleepUntil(lua_State * L)
 {
@@ -286,10 +351,10 @@ static void * KeypadInput()
     fdi = open(deviceName, O_RDONLY);
     if(fdi < 0) die("error: open");
 
-    if(ioctl(fdi, EVIOCGRAB, 1) < 0) die("error: ioctl 243");
+    if(ioctl(fdi, EVIOCGRAB, 1) < 0) die("error: ioctl 354");
 
-    if(ioctl(fdo, UI_SET_EVBIT, EV_SYN) < 0) die("error: ioctl 39");
-    if(ioctl(fdo, UI_SET_EVBIT, EV_KEY) < 0) die("error: ioctl 40");
+    if(ioctl(fdo, UI_SET_EVBIT, EV_SYN) < 0) die("error: ioctl 356");
+    if(ioctl(fdo, UI_SET_EVBIT, EV_KEY) < 0) die("error: ioctl 357");
     //if(ioctl(fdo, UI_SET_EVBIT, EV_MSC) < 0) die("error: ioctl 41");
 
     for(i = 0; i < KEY_MAX; ++i)
@@ -357,7 +422,7 @@ static void * KeypadInput()
                    TODO: fix other function keys
                 */
                 if (fixFunctionKeys) {
-                    if (ev.code ==KEY_BRIGHTNESSUP)
+                    if (ev.code == KEY_BRIGHTNESSUP)
                         ev.code = KEY_F2;
                 }
                 
@@ -365,7 +430,7 @@ static void * KeypadInput()
                 write(fdo, &ev, sizeof(ev));
                 write(fdo, &syncEv, sizeof(syncEv));
             }
-            else if (ev.value == 0) { /* only send key releases to Lua */
+            else if (ev.value == 1) { /* only send key presses to Lua */
                 keyStroke[0] = (unsigned char) lua_tointeger(L, -1);
                 lua_pop(L, 1);
                 lua_getglobal(L, "KeystrokeReceived");
@@ -386,18 +451,21 @@ static void * KeypadInput()
 
     close(fdi);
     close(fdo);
-    printf("Exiting- please play a note on your MIDI keyboard to exit.\n");
     pthread_exit(NULL);
+    return NULL;
 }
 
 static int SendKeystroke(lua_State * L) {
     int ret;
     bool shift;
+    bool gap;
     __u16 keyCode;
     
     /* This function expects a key code and whether it should be shifted */
     keyCode = (__u16) luaL_checkinteger(L, 1);
     shift = lua_toboolean(L, 2);
+    /* and now whether there should be a gap in case of long sequences */
+    gap = lua_toboolean(L, 3);
     
     if (shift) {
         memset(&outEv, 0, sizeof(outEv));
@@ -430,11 +498,68 @@ static int SendKeystroke(lua_State * L) {
         ret = write(fdo, &outEv, sizeof(outEv));
         ret = write(fdo, &syncEv, sizeof(syncEv));
     }
-    if (gapBetweenKeystrokes) {
+    if (gap) {
         usleep(12000);
     }
     return 0;
 }
+
+// This routine is for arrow keys, etc.
+// The first x arguments are key codes of keys (eg shift, alt, control) that need to be held down
+// The final argument is the key code actually "pressed"
+
+static int SendKeyCombo(lua_State * L) {
+    int stackSize;
+    __u16 keyCode;
+    int slot;
+    int ret;
+    
+    stackSize = lua_gettop(L);
+    if (stackSize < 1) {
+        printf("No arguments to SendKeyCombo!\n");
+        return 0;
+    }
+    for (slot = 1; slot<stackSize; slot++) {
+        keyCode = (__u16) luaL_checkinteger(L, slot);
+        memset(&outEv, 0, sizeof(outEv));
+        outEv.type = EV_KEY;
+        outEv.code = keyCode;
+        outEv.value = KEY_PRESS;
+        ret = write(fdo, &outEv, sizeof(outEv));
+        ret = write(fdo, &syncEv, sizeof(syncEv));
+    }
+    
+    usleep(12000);
+    
+    keyCode = (__u16) luaL_checkinteger(L, stackSize);
+    memset(&outEv, 0, sizeof(outEv));
+    outEv.type = EV_KEY;
+    outEv.code = keyCode;
+    outEv.value = KEY_PRESS;
+    ret = write(fdo, &outEv, sizeof(outEv));
+    ret = write(fdo, &syncEv, sizeof(syncEv));
+
+    memset(&outEv, 0, sizeof(outEv));
+    outEv.type = EV_KEY;
+    outEv.code = keyCode;
+    outEv.value = KEY_RELEASE;
+    ret = write(fdo, &outEv, sizeof(outEv));
+    ret = write(fdo, &syncEv, sizeof(syncEv));
+    
+    usleep(12000);
+    
+    for (slot = 1; slot<stackSize; slot++) {
+        keyCode = (__u16) luaL_checkinteger(L, slot);
+        memset(&outEv, 0, sizeof(outEv));
+        outEv.type = EV_KEY;
+        outEv.code = keyCode;
+        outEv.value = KEY_RELEASE;
+        ret = write(fdo, &outEv, sizeof(outEv));
+        ret = write(fdo, &syncEv, sizeof(syncEv));
+    }
+    return 0;
+}
+
 
 void *MIDIInput()
 {
@@ -446,10 +571,6 @@ void *MIDIInput()
 	const char * device_in;
 	char key[] = "My Unique Registry Key (no, really!)";
 
-	struct timeval	tv;
-	gettimeofday(&tv, NULL);
-	epoch = (lua_Number) tv.tv_sec;
-	
 	pthread_mutex_lock(&myMutex);
 	lua_pushstring(L, key);
 	MIDIstack = lua_newthread(L);
@@ -482,15 +603,17 @@ void *MIDIInput()
 	
 	for (i=1; i<10; i++) { // try ten times (5 seconds)
 	    usleep(500000);
+	    pthread_mutex_lock(&myMutex);
 	    lua_getglobal(MIDIstack, "LinuxAconnect");
 	    lua_call(MIDIstack, 0, 1);
 	    if (lua_toboolean(MIDIstack, -1)) {
 	        lua_pop(MIDIstack, 1);
+	        pthread_mutex_unlock(&myMutex);
 	        break;
 	    }
 	    lua_pop(MIDIstack, 1);
+	    pthread_mutex_unlock(&myMutex);
 	}
-	
 	
 	status = 0;
  	while ((status != EAGAIN) && stillGoing) {
@@ -502,19 +625,8 @@ void *MIDIInput()
             addToBuffer((unsigned char) buffer[0]);
         }
     }
-        
 
-    snd_rawmidi_close(handle_in);
-    snd_rawmidi_close(handle_out);
-
-	// Quit synthesizer if needed
-	pthread_mutex_lock(&myMutex);
-	lua_settop(MIDIstack, 0); // no more need for the rest of the stack
-	lua_getglobal(MIDIstack, "QuitSynth");
-	if lua_isfunction(MIDIstack, -1) {
-		lua_call(MIDIstack, 0, 0);
-	}
-	pthread_mutex_unlock(&myMutex);
+    printf("Finishing MIDI thread.\n"); // probably will never get here, but ok if it does
 
     pthread_exit(NULL);
     return NULL;
@@ -529,6 +641,10 @@ int main(int argc, char* argv[])
     pthread_t keypadThread;
     pthread_t MIDIThread;
 
+	struct timeval	tv;
+	gettimeofday(&tv, NULL);
+	epoch = (lua_Number) tv.tv_sec;
+	
     L = luaL_newstate();
     luaL_openlibs(L);
 	lua_pushcfunction(L, SendMidiData);
@@ -539,8 +655,12 @@ int main(int argc, char* argv[])
 	lua_setglobal(L, "SleepUntil");
 	lua_pushcfunction(L, SendKeystroke);
 	lua_setglobal(L, "SendKeystroke");
+	lua_pushcfunction(L, SendKeyCombo);
+	lua_setglobal(L, "SendKeyCombo");
 	lua_pushcfunction(L, GetTime);
 	lua_setglobal(L, "GetTime");
+	lua_pushcfunction(L, ScheduleEvent);
+	lua_setglobal(L, "ScheduleEvent");
 	
 	myDir = (char *) malloc(dirSize);
  	workingDir = (char *) malloc(dirSize);
@@ -589,9 +709,30 @@ int main(int argc, char* argv[])
     }
     
     pthread_join(keypadThread, NULL);
-    pthread_join(MIDIThread, NULL);
-    
+    // pthread_join(MIDIThread, NULL);
 
+/*  This code had been moved from the end of the MIDI thread. If that thread
+    isn’t joined, it should quit after the main thread quits
+*/
+
+    pthread_mutex_lock(&myMutex);
+    lua_getglobal(L, "AllNotesOff");
+    lua_call(L, 0, 0);
+	pthread_mutex_unlock(&myMutex);
+
+    snd_rawmidi_close(handle_in);
+    snd_rawmidi_close(handle_out);
+
+	// Quit synthesizer if needed
+	pthread_mutex_lock(&myMutex);
+	lua_getglobal(L, "QuitSynth");
+	if (lua_isfunction(L, -1)) {
+		lua_call(L, 0, 0);
+	}
+	else {
+	    lua_pop(L, 1);
+	}
+	pthread_mutex_unlock(&myMutex);
     return 0;
 }
 

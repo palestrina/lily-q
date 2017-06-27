@@ -6,7 +6,7 @@ deviceName = "/dev/input/by-id/usb-Apple__Inc_Apple_Keyboard-event-kbd"
 MIDIKeyboardName = "KeyStudio MIDI"
 
 -- If the computer keyboard is an Apple Extended Keyboard, use F16-F19 instead of F9-F12
-AppleExtendedKeyboard = true
+AppleExtendedKeyboard = false
 
 -- Use false or nil for the output channel to stay the same as the input channel
 -- Channel 16 is least likely to intefere with MIDI playback.
@@ -35,10 +35,25 @@ useLongValues = false
 -- What a full bar rest looks like.
 -- Use false for default values "1" or "\breve"
 -- Otherwise "2." for example
-fullRest = "1" 
+fullRest = "1"
+
+-- Should every note be followed by its rhythm?
+-- eg. a2 b2 c8 d8 e8 f8
+explicitRhythms = false
+
+-- Should each line (following a bar check) have the first rhythm explicitly stated?
+--[[  eg
+a2 b |
+c2 d4 e |
+f4 g2 a4 |
+--]]
+explicitRhythmsByLine = true
+
+-- Automatically add a bar check and a new line?
+rhythmCounting = true
 
 -- Debian insists that F2 is monitor brightness. This makes it F2
-fixFunctionKeys = false
+fixFunctionKeys = true
 
 -- if this is true, LilyQuick will attempt to run the function CloseSynth
 -- (defined in Linux.lua) on closing. You may wish to customise that function.
@@ -48,4 +63,6 @@ quitSynthOnClose = true
 -- its own synth. This may be useful if you normally use your synth with
 -- different settings (oss instead of alsa_seq for example)
 quitSynthOnOpen = false
+
+
 
