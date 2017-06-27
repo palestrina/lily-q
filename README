@@ -2,6 +2,12 @@ LILYQUICK
 
 Welcome to LilyQuick, originally written as a replacement for Speedy Note Entry when I moved from Finale to Lilypond, and then much improved. The basic idea is to play notes on a MIDI keyboard with your left hand, then while they are sounding, press a note on the numeric keypad with your right hand corresponding to the duration. For example, to get "f2", play an F on the MIDI keyboard, and press number 5 on the numeric keypad. The advantage to this approach is excellent speed and accuracy, and you get to hear the notes as they are being entered.
 
+VIDEO
+
+I did a demonstration video that you can watch at https://youtu.be/eh8mgF1CNAo
+
+NUMERIC KEYPAD LAYOUT
+
 The default key layout is as follows: numeric keypad keys 0-6 produce notes in conjunction with the MIDI keyboard.
 6 - semibreve/whole
 5 - minim/half
@@ -13,7 +19,7 @@ The default key layout is as follows: numeric keypad keys 0-6 produce notes in c
 
 For longer and shorter values, see setting note lengths below.
 
-7 adds whole bar rests such as R1* , then changes to data entry mode, where the numeric keypad behaves as normal. Pressing enter leaves data entry mode. The type of rest is from the variable fullRest in LQconfig.lua. So to enter 15 bars of rest, you would type 7, 1, 5, enter on the numeric keypad.
+7 adds whole measure rests such as R1* , then changes to data entry mode, where the numeric keypad behaves as normal. Pressing enter leaves data entry mode. The type of rest is from the variable fullRest in LQconfig.lua. So to enter 15 measures of rest, you would type 7, 1, 5, enter on the numeric keypad.
 
 8 is for entering tuplets. The 8 key enters \tuplet, then enters data entry mode for the numbers. The enter key leaves data entry mode and adds the curly bracket " { ", ready for note entry. So for quintuplets you would press 8, 5, /, 4, enter; which would type " \tuplet 5/4 {"
 
@@ -31,7 +37,7 @@ If you only ever use triplets, you can add the ratio after the Tuplets function:
 
 * changes the previous note enharmonically, for example cis to des. Press again to cycle between possibilities.
 
-The Enter key either exits data entry mode, or adds a bar check and newline: " |\n"
+The Enter key either exits data entry mode, or adds a bar check and newline: " |\n".
 
 F8/F15 exits LilyQuick.
 
@@ -42,10 +48,31 @@ In C major, LilyQuick will type a chromatic scale as follows: c cis d es e f fis
 
 SHIFT F9/F16 alternates absolute and relative input modes. The first note played after relative mode is selected becomes the reference note (so to avoid octave indications on your first note, play it straight away after selecting relative mode).
 
-F10/F17 changes the key flatwards
+F10/F17 sets the measure length for rhythm counting and full measure rests. Type in either a duration (eg. "1", "2." etc) or two numbers like "3/4" or "5/8". The plus key on the numeric keypad will enter "\breve".
 
+SHIFT F10/F17 Set note lengths. For notes longer than whole or shorter than thirty-seconds you can change the note lengths the keys 1-6 will produce. After pressing SHIFT F10/F17, press:
+"2" for \longa - 8
+"3" for \breve - 16
+"5" for 1 - 32
+"6" for 2 - 64
 
-F11/F18 and F12/F19 (and any other numeric key) can be customized at your pleasure.
+F11/F18 Toggles rhythm counting (see below).
+
+F12/F19 (and any other key on the numeric keypad) can be customized at your pleasure.
+
+RHYTHM COUNTING (NEW!)
+
+When rhythm counting is turned on, LilyQuick will keep track of rhythms you have entered and automatically enter a bar check ("|") and a newline. Enter your measure length with F10/F17.
+
+Pressing Enter on the numeric keypad adds a bar check and new line manually, and resets the counting (useful for \partial measures). Pressing SHIFT Enter resets the counting without typing anything.
+
+To enter a tie over the barline, enter any note value larger than the remaining time left in the bar. For example in 3/4 time, pressing 4 twice while holding an F on the midi keyboard will produce:
+
+f4 f
+
+Pressing 5 (for a half-note) will produce:
+
+f4 f f~ |
 
 IMPLEMENTATION
 
@@ -60,8 +87,6 @@ LQconfig.lua contains a number of options you may wish to change, such as absolu
 
 TODO
 - Allow make install to put the executable into some /bin directory. Not sure how to tell it where the Lua scripts are yet.
-- Easier time signature changing, either through the command line or the numeric keypad.
-- Tracking note values entered to allow automatic bar checks/new lines.
 - Allow entry of higher UTF-8 characters and different keyboard layouts.
 
 
