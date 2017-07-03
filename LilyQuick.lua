@@ -1,4 +1,4 @@
-VERSION = "0.94" .. utf8.char(0x3b2) -- beta
+VERSION = "0.941" .. utf8.char(0x3b2) -- beta
 if _VERSION ~= "Lua 5.3" then
     print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
     return true
@@ -15,7 +15,6 @@ local lastNote = 60 -- assume middle C
 local lastNoteName = "c"
 local lastRhythm = false
 local lastChord = false
-local key = 0
 local dataEntry = false
 local enteringTuplet = false
 local tupletRatio
@@ -51,6 +50,8 @@ do
   dofile(ROOT .. "/LQExtraSettings.lua")
  end
 end
+
+local key = defaultKey or 0
 
 do
     local t = noteNamesInternational.nederlands
@@ -158,7 +159,6 @@ local function ValueToDuration(value)
 end
 
 local function ChangeKey(newKey)
-    key = key or 0
     local oldKey = key
     key = newKey
     if key > 7 then
@@ -166,19 +166,8 @@ local function ChangeKey(newKey)
     elseif key < -7 then
         key = -7
     end
-    if oldKey ~= key then
-    --[[
-        if keyNoteSent then
-            -- cancel last note
-            SendMidiEvent(0x80 + MyMIDIOutputChannel, keyNotes[oldKey], 0x40)
-        end
-        SendMidiEvent(0x90 + MyMIDIOutputChannel, keyNotes[key], 0x40)
-        keyNoteOffTime = GetTime() + 1.5
-        keyNoteSent = keyNotes[key]
-        --]]
-        SendMidiEvent(0x90 + MyMIDIOutputChannel, keyNotes[key], 0x40)
-        ScheduleEvent(GetTime() + 0.618033989, { SendMidiEvent, 0x80 + MyMIDIOutputChannel, keyNotes[key], 0x40 })
-    end
+    SendMidiEvent(0x90 + MyMIDIOutputChannel, keyNotes[key], 0x40)
+    ScheduleEvent(GetTime() + 0.618033989, { SendMidiEvent, 0x80 + MyMIDIOutputChannel, keyNotes[key], 0x40 })
 end
 
 local myModifier
@@ -223,6 +212,23 @@ function Alternate(t)
     SendString(code)
 end
 
+-- Delete (undo) whatever has just been typed
+local function DeleteString(s)
+    --go through the UTF-8 codepoints in the string in reverse
+    local l = utf8.len(s)
+    if l then
+         for p = l, 1, -1 do
+            local c = utf8.codepoint(s, utf8.offset(s, p))
+            --print(c)
+            if c == 10 then -- "\n"
+                SendKeyCombos("()END (S)HOME ()BACKSPACE ()BACKSPACE")
+            else
+                SendKeyCombos("()BACKSPACE")
+            end
+        end
+    end
+end
+
 function PerformUndo()
     local n = eventsSent.n
     local myUndo = eventsSent[n]
@@ -230,20 +236,7 @@ function PerformUndo()
     if myUndo then
         eventsSent[n] = nil
         eventsSent.n = eventsSent.n - 1
-        local s = myUndo.stringSent
-        --go through the UTF-8 codepoints in the string in reverse
-        local l = utf8.len(s)
-        if l then
-            for p = l, 1, -1 do
-                local c = utf8.codepoint(s, utf8.offset(s, p))
-                --print(c)
-                if c == 10 then -- "\n"
-                    SendKeyCombos("()END (S)HOME ()BACKSPACE ()BACKSPACE")
-                else
-                    SendKeyCombos("()BACKSPACE")
-                end
-            end
-        end
+        DeleteString(myUndo.stringSent)
         lastNote = myUndo.lastNote
         lastNoteName = myUndo.lastNoteName
         lastRhythm = myUndo.lastRhythm
@@ -302,7 +295,7 @@ function EnharmonicChange()
     local n = eventsSent.n
     local lastEvent = eventsSent[n]
     if lastEvent then
-        local preamble, noteName, theRest = string.match(lastEvent.codeSent, "(%A*)(%a+)(.*)")
+        local preamble, noteName, theRest = string.match(lastEvent.stringSent, "(%A*)(%a+)(.*)")
         if preamble and noteName and theRest then 
             local note = namesToNumbers[noteName]
             if note then -- make sure a note has actually been sent
@@ -311,8 +304,10 @@ function EnharmonicChange()
                     note = ((note - 1) % 12) + 1
                 end
                 noteName = preamble .. noteNames[note] .. theRest
-                SendString(string.rep("\127", #(lastEvent.codeSent)) .. noteName, true)
-                lastEvent.codeSent = noteName
+                DeleteString(lastEvent.stringSent)
+                SendString(noteName, true)
+                --lastEvent.lastNoteName = noteName
+                lastEvent.stringSent = noteName
             end
         end
     end
@@ -583,6 +578,17 @@ function AddNote(value, isShifted)
         return hasRhythmNumberBeenSent
 end
 
+-- these note lengths don’t change through different layouts
+-- (except for the Denemo layout), and are reachable through a metatable
+local defaultNoteLengths = { 
+    ["0"] = false,
+    ["1"] = "8",
+    ["4"] = "4",
+    ["5"] = "2",
+}
+
+local defaultNoteLengthMeta = { __index = defaultNoteLengths }
+
 local noteLengths = {
     ["5"] = {
         ["6"] = "64",
@@ -604,18 +610,37 @@ local noteLengths = {
         ["3"] = "\\breve",
         ["2"] = "\\longa",
     },
-}    
+    ["0"] = {   -- Denemo mode
+        ["0"] = "1",
+        ["1"] = "2",
+        ["2"] = "4",
+        ["3"] = "8",
+        ["4"] = "16",
+        ["5"] = "32",
+        ["6"] = "64",
+    },
+}   
+
+local keysZeroToSix = {}
+
 local function SettingNoteLengths(c)
     local t = noteLengths[c]
     if t then
         chosenNoteLengths = c
-        for key, length in pairs(t) do
-            keystrokesInward[key][2] = length
+        setmetatable(t, defaultNoteLengthMeta)
+        for n = 0, 6 do
+            local numKey = tostring(n)
+            local length = t[numKey]
+            keysZeroToSix[numKey] = { AddNote, length }
         end
     end
     print("Numeric keys and note lengths:")
+    local k = keysZeroToSix["0"][2]
+    if k then
+        print("0: " .. k)
+    end
     for i = 1, 6 do
-        print(i .. ": " .. keystrokesInward[tostring(i)][2])
+        print(i .. ": " .. keysZeroToSix[tostring(i)][2])
     end
     
     auxiliaryKeystroke = false
@@ -623,15 +648,20 @@ end
 
 function InitSetNoteLengths()
     print("Enter longest note- 2: \\longa, 3: \\breve, 6: 1, 5: 2")
+    print("Or 0: Denemo layout")
     auxiliaryKeystroke = SettingNoteLengths
 end
 
-if useLongValues then
-    chosenNoteLengths = "3"
-    longRest = "R\\breve*"
-else
-    chosenNoteLengths = "6"
-    longRest = "1*"
+do
+    local longNoteToNum = {
+        ["\\longa"] = "2",
+        ["\\breve"] = "3",
+        ["1"] = "6",
+        ["2"] = "5",
+        ["D"] = "0",
+    }
+    local longestNoteOnKeypad = longestNoteOnKeypad or "1"
+    chosenNoteLengths = longNoteToNum[longestNoteOnKeypad] or "6"
 end
 
 if fullRest then
@@ -667,6 +697,8 @@ if type(LQCustomKeyboardEvents) == "table" then
   keystrokesInward[k] = v
  end
 end
+
+setmetatable(keystrokesInward, { __index = keysZeroToSix })
 
 local function ParseForMIDIEvents(packet)
 --    print(type(packet), string.byte(packet, 1, -1))

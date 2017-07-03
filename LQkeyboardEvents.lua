@@ -10,6 +10,13 @@ strings are passed, backslashes should be escaped (so that "\(" becomes "\\(" ).
 
 
 keystrokesInward = {
+    -- Note entry values (0-6 on the numeric keypad) are now taken care of
+    -- in the initialization. (See LilyQuick.lua c. 581-667)
+    -- The following (now commented) values of 0-6 may still be set and will
+    -- override other settings (on a case by case basis). So if you want a stable 
+    -- custom keypad layout, you may still want to set 0-6 here.
+    
+    --[[ begin commenting
     ["0"] = { AddNote, false }, 
     ["1"] = { AddNote, "8" },
     ["2"] = { AddNote, "16" }, 
@@ -17,6 +24,8 @@ keystrokesInward = {
     ["4"] = { AddNote, "4" },
     ["5"] = { AddNote, "2" },
     ["6"] = { AddNote, "1" },
+    -- end commenting --]]
+    
 	["7"] = { AddWholeBarRestsInit },
 	["8"] = { Tuplets },
 	-- for fixed tuplets, use this line

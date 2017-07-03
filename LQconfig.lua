@@ -29,13 +29,17 @@ inputLanguage = "nederlands"
 -- I prefer aes to as and ees to es
 useAesEes = false
 
--- if this is set to true, the 3 key will produce \breve instead of 32
-useLongValues = false
+-- what key will LilyQuick start in?
+defaultKey = 0
 
 -- What a full bar rest looks like.
 -- Use false for default values "1" or "\breve"
 -- Otherwise "2." for example
 fullRest = "1"
+
+-- Inital longest note lengths in keyboard layout
+-- possible values: "\\longa", "\\breve", "1", "2", "D" for Denemo layout
+longestNoteOnKeypad = "1"
 
 -- Should every note be followed by its rhythm?
 -- eg. a2 b2 c8 d8 e8 f8

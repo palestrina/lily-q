@@ -55,6 +55,7 @@ SHIFT F10/F17 Set note lengths. For notes longer than whole or shorter than thir
 "3" for \breve - 16
 "5" for 1 - 32
 "6" for 2 - 64
+"0" to duplicate Denemo’s layout (0 = 1, 1 = 2, 2 = 4 ... 6 = 64)
 
 F11/F18 Toggles rhythm counting (see below).
 
