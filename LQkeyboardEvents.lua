@@ -42,9 +42,9 @@ keystrokesInward = {
     ["C"] = { PerformUndo }, -- clear/Numlock
     ["="] = "~", 
     ["."] = { AddDot },
-    ["+"] = { Alternate, { " ( ", " ) " } }, 
+    ["+"] = { Articulation, { "(", ")" } }, 
 	["*"] = { EnharmonicChange },
-	["-"] = "--", -- or your choice of articulation
+	["-"] = { Articulation, "\\fermata"}, -- or your choice of articulation
 	["SHIFT E"] = { EnterKey, true },
     ["E"] = { EnterKey },
     ["/"] = "~",

@@ -68,5 +68,13 @@ quitSynthOnClose = true
 -- different settings (oss instead of alsa_seq for example)
 quitSynthOnOpen = false
 
+-- Which “articulations” belong to the left of their notes (ie. they should
+-- appear on the start of a line rather than the end of a line?
+
+leftArticulations = {
+    ["\\["] = true,
+    ["("] = true,
+}
+
 
 

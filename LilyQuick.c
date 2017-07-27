@@ -601,7 +601,7 @@ void *MIDIInput()
 		//printf("Virtual MIDI opened!\n", device_in);
 	}
 	
-	for (i=1; i<10; i++) { // try ten times (5 seconds)
+	for (i=1; i<=10; i++) { // try ten times (5 seconds)
 	    usleep(500000);
 	    pthread_mutex_lock(&myMutex);
 	    lua_getglobal(MIDIstack, "LinuxAconnect");

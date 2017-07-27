@@ -14,6 +14,7 @@ local string_rep = string.rep
 local lastNote = 60 -- assume middle C
 local lastNoteName = "c"
 local lastRhythm = false
+local savedRhythm = "4"
 local lastChord = false
 local dataEntry = false
 local enteringTuplet = false
@@ -249,7 +250,7 @@ function PerformUndo()
 end
 
 local barCheck = " |\n"
-function EnterKey(shifted)
+function EnterKey(_, shifted)
     if explicitRhythmsByLine then
         lastRhythm = false
     end
@@ -280,6 +281,7 @@ function AddDot()
             myDotValue = thisLength * 0.5
         end
         lastRhythm = lastRhythm .. "."
+        savedRhythm = lastRhythm
         if hasRhythmNumberBeenSent then
             SendString(".")
         else
@@ -290,6 +292,63 @@ function AddDot()
     end
     return true
 end
+
+local spaceBeforeArticulations = spaceBeforeArticulations or ""
+
+local articulationsSent = {}
+local emptyEvent = {}
+
+function Articulation(a)
+    local spaceBeforeArticulations = spaceBeforeArticulations or ""
+    local myArt
+    if type(a) == "table" then
+        local prev = articulationsSent[a]
+        if prev then
+            local n = 1
+            while (not myArt) and n <= #a do
+                if prev == a[n] then
+                    myArt = a[n+1] or a[1]
+                end
+                n = n + 1
+            end
+        else
+            myArt = a[1]
+        end
+        articulationsSent[a] = myArt
+    elseif type(a) == "string" then
+        myArt = a
+    end
+    if myArt then
+        if myArt:match("^[%-%^%_]") then
+            spaceBeforeArticulations = ""
+        end
+        local lastEvent = eventsSent[eventsSent.n] or emptyEvent
+        local before, after
+        local s = lastEvent.stringSent or ""
+        local border = s:find("[^%_%-%^]%|") -- avoid staccatissimo "-|"
+        if border then
+            before = s:sub(1, border)
+            after = s:sub(border + 1)
+            while before:match(".-%s$") do
+                after = before:sub(-1) .. after
+                before = before:sub(1, -2)
+            end
+         else
+            before = s
+            after = ""
+        end
+        if (not border) or leftArticulations[myArt] then -- no barcheck/newline sent
+            SendString(spaceBeforeArticulations .. myArt)
+        else
+            lastEvent.stringSent = before
+            DeleteString(after)
+            SendString(spaceBeforeArticulations .. myArt .. after)
+        end
+    else
+        print("Error- articulation not specified")
+    end
+end
+
 
 function EnharmonicChange()
     local n = eventsSent.n
@@ -489,7 +548,7 @@ function AddNote(value, isShifted)
     local lineEndingSuffix = ""
     local charsSent = 0
     local eraseLineCode = ""
-    value = value or lastRhythm
+    value = value or savedRhythm
     if rhythmCounting then
         local thisLength = ValueToDuration(value) * rhythmMultiplier
         local total = cumulativeNoteLength + thisLength
@@ -561,6 +620,7 @@ function AddNote(value, isShifted)
         end
     end
     lastChord = lastChord or false
+    savedRhythm = lastRhythm
     if explicitRhythmsByLine and lineEndingSuffix:match("%s%|") then
         lastRhythm = false
     end
@@ -869,8 +929,6 @@ do
         local message = string.char(table.unpack(chord, 2))
         ScheduleEvent(t + chord[1] + 0.5, { SendMidiData, message })
     end
-    ScheduleEvent(t+5, { SendKeyCombos, "(C)q" })
-    --print(SendKeystroke)
 end
 
 return false
