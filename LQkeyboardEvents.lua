@@ -3,7 +3,7 @@
 How the incoming numeric keypad keystrokes are handled. There are two forms:
 a plain string is just typed, and if a table is passed, the first entry is a 
 function to be called, with the other entry to passed as parameters. To pass 
-multiple paramaters, send a table (see the function Alternate below). If '
+multiple paramaters, send a table (see the function Articulation below). If '
 strings are passed, backslashes should be escaped (so that "\(" becomes "\\(" ).
 
 --]]
