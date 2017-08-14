@@ -132,6 +132,27 @@ if not AlsaMIDIDeviceID then
 	return true
 end
 
+-- work out if any keyboard exceptions are relevant
+--[[
+do
+    local K = io.popen("LANG=C && setxkbmap -query")
+    local s = K:read("a")
+    K:close()
+    local l = s:match("layout%:%s+(%a%a)")
+    if l and keyboardExceptions[l] then
+        keyboardExceptions = keyboardExceptions[l]
+    else
+        keyboardExceptions = {}
+    end
+end
+--]]
+if specialKeyboardLayout and keyboardExceptions[specialKeyboardLayout] then
+    keyboardExceptions = keyboardExceptions[specialKeyboardLayout]
+else
+    keyboardExceptions = {}
+end
+
+
 return false
 --AlsaMIDIDeviceID = AlsaMIDIDeviceID or "hw:2,0,0"
 

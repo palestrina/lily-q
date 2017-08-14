@@ -2,16 +2,6 @@ LILYQUICK
 
 Welcome to LilyQuick, originally written as a replacement for Speedy Note Entry when I moved from Finale to Lilypond, and then much improved. The basic idea is to play notes on a MIDI keyboard with your left hand, then while they are sounding, press a note on the numeric keypad with your right hand corresponding to the duration. For example, to get "f2", play an F on the MIDI keyboard, and press number 5 on the numeric keypad. The advantage to this approach is excellent speed and accuracy, and you get to hear the notes as they are being entered.
 
-DIFFERENT KEYBOARD LAYOUTS
-
-Currently LilyQuick only supports QWERTY and with some keyboard layouts this causes problems,
-for example you get German umlauts instead of "'".
-
-You can look up your current layout by typing
-"setxkbmap -query".
-You can change your current layout to "us" which is suitable for LilyQuick by typing
-"setxkbmap us".
-
 VIDEO
 
 I did a demonstration video that you can watch at https://youtu.be/eh8mgF1CNAo
@@ -95,6 +85,23 @@ Intercepting computer keyboard keystrokes requires superuser privileges (sudo).
 
 CUSTOMIZATION
 LQconfig.lua contains a number of options you may wish to change, such as absolute/relative note entry, MIDI output channel etc. See the INSTALL file for more information on deviceName and MIDIKeyboardName. The file LQkeyboardEvents.lua determines how incoming computer keyboard keystrokes are handled, and is completely customizable. To type a simple string, just include it (like the entry for "9"). Otherwise the entry should be a table containing a function, and the parameter to send to it. To send multiple parameters, put them in a table (like the function Alternate).
+
+DIFFERENT KEYBOARD LAYOUTS
+If you use a different keyboard layout (German for example), some characters may not type properly. For example the character "'" may be typed as "ä". There is experimental support for other layouts. First set you layout at the bottom of LQconfig.lua:
+
+specialKeyboardLayout = "de"
+
+for German keyboards. Then add keyboard exceptions as needed in Ausillary_stuff.lua from line 191. I have added most of the problematic punctuation, but this should be tested (I’m having trouble getting keyboard to stay in German layout). Ask me if you need help with your own layout.
+ 
+Currently LilyQuick only supports QWERTY and with some keyboard layouts this causes problems,
+for example you get German umlauts instead of "'".
+
+You can look up your current layout by typing
+"setxkbmap -query".
+You can change your current layout to "us" which is suitable for LilyQuick by typing
+"setxkbmap us".
+
+
 
 TODO
 - Allow make install to put the executable into some /bin directory. Not sure how to tell it where the Lua scripts are yet.

@@ -108,6 +108,8 @@ local lower = string.lower
 local shiftMask = 0x1000
 local removeMask = shiftMask - 1
 
+-- this is for US keyboard layouts (for '!', press shift and '1' for example)
+-- Exceptions or special characters can be entered below
 local shiftCodes = "~`!1@2#3$4%5^6&7*8(9)0_-+={[}]|\\:;\"'<,>.?/"
 
 -- this table of keycodes is from /usr/include/linux/input.h
@@ -184,21 +186,61 @@ setmetatable(keyCodes, {
          return false -- cause an error
     end })
 
+local charpattern = utf8.charpattern
+
+-- Keyboard exceptions can be used for special characters, or for characters
+-- that don’t type properly on your local keyboard. To find your keyboard
+-- layout type:
+--
+-- > setxkbmap -query
+--
+-- One line should say:
+-- layout:     us,us
+-- for example. The format for the keypresses is a set of parenthesis
+-- (mandatory) with modifier keys -- () means no modifier. S = shift,
+-- A = alt, C = control --(AC) is equivalent to AltGr. This is followed
+-- by a single character (the key to be pressed), or one of the capital
+-- words in extraKeys below.
+
+keyboardExceptions = {
+    ["us"] = {
+        -- For right single quote, compose key, quote, shift dot (for '>') 
+        ["’"] = "()COMPOSE ()' (S).",
+    },
+    ["de"] = {
+        -- For double quotes on German keyboards, shift 2
+        ["\""] = "(S)2",
+        ["'"] = "(S)\\",
+        ["{"] = "(G)7",
+        ["}"] = "(G)0",
+        ["/"] = "(S)7",
+        ["\\"] = "(G)-",
+        ["("] = "(S)8",
+        [")"] = "(S)9",
+    
+    },
+}
+
 function SendString(s, deletingFlag)
     local myGap = gapBetweenKeystrokes or #s > 7
     if not deletingFlag then
         myKeyStrokesSent[#myKeyStrokesSent+1] = s
     end
-    for c in s:gmatch(".") do
-        local shift = false
-        local code = keyCodes[c]
-        if code then
-            if code & shiftMask ~= 0 then
-                shift = true
-                code = code & removeMask
+    for c in s:gmatch(charpattern) do
+        local ke = specialKeyboardLayout and keyboardExceptions[c]
+        if ke then
+            SendKeyCombos(ke)
+        else
+            local shift = false
+            local code = keyCodes[c]
+            if code then
+                if code & shiftMask ~= 0 then
+                    shift = true
+                    code = code & removeMask
+                end
+                SendKeystroke(code, shift, myGap)
             end
-            SendKeystroke(code, shift, myGap)
-         end
+        end
     end
 	if (not deletingFlag) and currentUndo then
         lastStringSent = s
@@ -209,7 +251,6 @@ function SendString(s, deletingFlag)
         eventsSent[n - maxUndos] = nil
         currentUndo = nil
     end
-    gapBetweenKeystrokes = false
 end
 
 --[[
@@ -231,6 +272,7 @@ local modifierKeys = {
     S = 42, -- KEY_LEFTSHIFT
     A = 56, -- KEY_LEFTALT
     C = 29, -- KEY_LEFTCTRL
+    G = 100, -- KEY_RIGHTALT
 }
 
 local extraKeys = {
@@ -244,6 +286,10 @@ local extraKeys = {
     END = 107,
     PAGEUP = 104,
     PAGEDOWN = 109,
+    -- according to input.h, KEY_COMPOSE is 127. For me 127 is the menu key.
+    -- if the compose key doesn’t work, perhaps try 127
+    COMPOSE = 126,
+    RETURN = 28, -- Enter key on the main keyboard
 }
 
 setmetatable(extraKeys, { __index = keyCodes })

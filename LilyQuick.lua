@@ -1,4 +1,4 @@
-VERSION = "0.941" .. utf8.char(0x3b2) -- beta
+VERSION = "0.95" .. utf8.char(0x3b2) -- beta
 if _VERSION ~= "Lua 5.3" then
     print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
     return true
@@ -814,6 +814,8 @@ function ProcessEvent.CONTROLLER(channel, controller, value)
                 NoteOffQueue[pitch] = nil 
             end
         end
+    elseif controller == 0x01 then
+        value = preferredModulationValue or value
     end
     SendMidiEvent(channel, controller, value)
 end
@@ -912,9 +914,13 @@ do
     VERSION = nil
     SettingNoteLengths(chosenNoteLengths)
     chosenNoteLengths = nil
+end
+
+function PlayFlourish()
     local t = GetTime()
     local chords = {
         { 0.6, 0xc0, 1 },
+        { 0.605, 0xb0, 1, 0 },
         { 0.611635, 159, 53, 75 },
         { 0.80585, 159, 59, 77 },
         { 0.922082, 159, 63, 71 },
@@ -927,8 +933,9 @@ do
     for i, chord in ipairs(chords) do
         chord[2] = (chord[2] & 0xf0) | MIDIOutputChannel 
         local message = string.char(table.unpack(chord, 2))
-        ScheduleEvent(t + chord[1] + 0.5, { SendMidiData, message })
+        ScheduleEvent(t + chord[1], { SendMidiData, message })
     end
+    PlayFlourish = nil
 end
 
 return false

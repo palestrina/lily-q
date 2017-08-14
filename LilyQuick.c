@@ -403,7 +403,7 @@ static void * KeypadInput()
             break;
         }
         if (ev.type == EV_KEY && (ev.value == 0 || ev.value == 1)) {
-        //printf("%d %d %d\n", ev.type, ev.value, ev.code);
+            // printf("%d %d %d\n", ev.type, ev.value, ev.code);
             pthread_mutex_lock(&myMutex);
             lua_pushinteger(L, (int) ev.code);
             lua_gettable(L, -2);
@@ -601,13 +601,16 @@ void *MIDIInput()
 		//printf("Virtual MIDI opened!\n", device_in);
 	}
 	
-	for (i=1; i<=10; i++) { // try ten times (5 seconds)
+	for (i=1; i<=20; i++) { // try twenty times (20 seconds)
 	    usleep(500000);
 	    pthread_mutex_lock(&myMutex);
 	    lua_getglobal(MIDIstack, "LinuxAconnect");
 	    lua_call(MIDIstack, 0, 1);
 	    if (lua_toboolean(MIDIstack, -1)) {
 	        lua_pop(MIDIstack, 1);
+	        // The synth is connected, play the opening flourish
+	        lua_getglobal(MIDIstack, "PlayFlourish");
+            lua_call(MIDIstack, 0, 0);
 	        pthread_mutex_unlock(&myMutex);
 	        break;
 	    }

@@ -76,5 +76,14 @@ leftArticulations = {
     ["("] = true,
 }
 
+-- Is your modulation wheel overly sensitive? What would you prefer it to be?
+-- false or nil to disable
+preferredModulationValue = 0
+
+-- This experimental feature is designed to assist with international keyboard
+-- layouts. Use "de" for a German layout for example, then characters that
+-- otherwise are typed wrongly can be specified in keyboardExceptions.
+-- (see Auxillary_stuff.lua from line 191) 
+specialKeyboardLayout = "us"
 
 
