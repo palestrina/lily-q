@@ -12,7 +12,7 @@ local OpenSynthCommand = [[su -c "qsynth --midi-driver=alsa_seq &" vaughan]]
 
 -- This runs Qsynth as user vaughan. Running as root may lose existing settings.
 -- To run as root, a simpler alternative is:
--- local OpenSynthCommand = "qsynth --midi-driver=alsa_seq &"
+--local OpenSynthCommand = "qsynth --midi-driver=alsa_seq &"
 
 LinuxOpenSynth = function()
 	if quitSynthOnOpen then

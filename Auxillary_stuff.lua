@@ -168,7 +168,12 @@ local keyCodes = {
     ["."] = 52,
     ["/"] = 53,
     [" "] = 57,
-}
+     -- KEY_102D, the German key that is missing on English layouts
+     -- it should be "<" but I don’t want other layouts to pick it
+     -- up when they don’t need to, so I’m using a dummy character
+     -- that would never need to be typed.
+    ["\x02"] = 86,
+} 
 
 setmetatable(keyCodes, {
     __index = function(t,c)
@@ -197,10 +202,12 @@ local charpattern = utf8.charpattern
 -- One line should say:
 -- layout:     us,us
 -- for example. The format for the keypresses is a set of parenthesis
--- (mandatory) with modifier keys -- () means no modifier. S = shift,
--- A = alt, C = control --(AC) is equivalent to AltGr. This is followed
--- by a single character (the key to be pressed), or one of the capital
--- words in extraKeys below.
+-- (mandatory) with modifier keys 
+-- () means no modifier. S = shift,
+-- A = alt, C = control, G = AltGr 
+-- This is followed by a single character (the key to be pressed), or one 
+-- of the capital words in extraKeys below.
+-- (It turns out alt-control is not the same as AltGr, only on Windows) 
 
 keyboardExceptions = {
     ["us"] = {
@@ -217,7 +224,9 @@ keyboardExceptions = {
         ["\\"] = "(G)-",
         ["("] = "(S)8",
         [")"] = "(S)9",
-    
+        ["|"] = "(G)\x02", -- \x02 just a placeholder character -- see line 171
+        ["<"] = "()\x02",
+        [">"] = "(S)\x02",
     },
 }
 
@@ -299,7 +308,7 @@ setmetatable(extraKeys, { __index = keyCodes })
 -- So "(AC)DOWN" sends the down arrow with alt and control pressed
 -- Use () for no modifiers
 
-function SendKeyCombos(s)
+function SendKeyCombos(s, code)
     for modifiers, key in s:gmatch("%((%u*)%)(.%u*)") do
         local codes = {}
         for m in modifiers:gmatch("%u") do

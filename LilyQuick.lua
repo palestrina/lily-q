@@ -1,4 +1,4 @@
-VERSION = "0.95" .. utf8.char(0x3b2) -- beta
+VERSION = "0.951" .. utf8.char(0x3b2) -- beta
 if _VERSION ~= "Lua 5.3" then
     print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
     return true
@@ -35,6 +35,7 @@ local cumulativeNoteLength = 0.0
 local deleteOneChar = "()\127 "
 local currentUndo
 local maxUndos = 10
+local isNote
 local bracketStack = {}
 local barLength
 local barLengthNumber = 1.0
@@ -546,7 +547,6 @@ end
 
 function AddNote(value, isShifted)
     local lineEndingSuffix = ""
-    local charsSent = 0
     local eraseLineCode = ""
     value = value or savedRhythm
     if rhythmCounting then
@@ -555,13 +555,11 @@ function AddNote(value, isShifted)
         myDotValue = thisLength * 0.5
         if IsClose(total, barLengthNumber) then -- end of a bar
             lineEndingSuffix = " |\n"
-            charsSent = charsSent + 2
             eraseLineCode = eraseLine
             cumulativeNoteLength = 0.0
             myDotValue = false
         elseif total > barLengthNumber then -- a tie is intended
             lineEndingSuffix = "~ |\n"
-            charsSent = charsSent + 3
             eraseLineCode = eraseLine
             value = DurationToValue(barLengthNumber - cumulativeNoteLength) or value
             cumulativeNoteLength = 0.0
@@ -587,6 +585,7 @@ function AddNote(value, isShifted)
         hasRhythmNumberBeenSent = true
     end
     if note then
+        isNote = true
         name, suffix = FindNoteName(note, lastNote, lastNoteName)
         lastNote = note
         lastNoteName = name
@@ -627,11 +626,9 @@ function AddNote(value, isShifted)
     -- close triplet brackets if it is the end of a line
     -- (this doesn’t allow for tuplets over barlines)
     SendString(name)
-    charsSent = charsSent + #name
     if lineEndingSuffix ~= "" then
         while bracketStack[1] do
             CloseBrackets()
-            charsSent = charsSent + #myEndBracket
         end
         SendString(lineEndingSuffix)
     end
@@ -764,7 +761,8 @@ local function ParseForMIDIEvents(packet)
 --    print(type(packet), string.byte(packet, 1, -1))
     local noteOnsReceived = false
     -- new code, using string.gmatch
-    -- process the packet in the following order: note offs, control changes (which might include bank selection), patch changes, note ons
+    -- process the packet in the following order: note offs, control changes
+    -- (which might include bank selection), patch changes, note ons
     
     -- note off
     for midiMessage in gmatch(packet, "[\x90-\x9f][\x00-\x7f]\x00") do -- zero velocity note on
@@ -861,6 +859,7 @@ function MidiPacketReceive(packet)
 end
 
 function KeystrokeReceived(c, shiftOn)
+    isNote = nil
     if auxiliaryKeystroke then
         auxiliaryKeystroke(c)
         return false
@@ -879,6 +878,7 @@ function KeystrokeReceived(c, shiftOn)
             tupletRatio = tupletRatio,
             myDotValue = myDotValue,
             rhythmMultiplier = rhythmMultiplier,
+            isNote = isNote,
             
         }
         if type(params) == "table" then
@@ -936,6 +936,13 @@ function PlayFlourish()
         ScheduleEvent(t + chord[1], { SendMidiData, message })
     end
     PlayFlourish = nil
+end
+
+function KeyTest()
+    for i =  85, 95 do
+        SendKeyCombo(100, i)
+        SendString("\n" .. i, true)
+    end
 end
 
 return false
