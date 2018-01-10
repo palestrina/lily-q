@@ -6,8 +6,8 @@ all:
 	rm LuaSource/*.o
 	rm LuaSource/lua
 	rm LuaSource/luac
-	gcc -ILuaSource -LLuaSource -o lq LilyQuick.c -ldl -lasound \
-		-lpthread -llua -lm
+	gcc -ILuaSource -LLuaSource -o lq LilyQuick.c -lasound \
+		-lpthread -llua -ldl -lm
 	rm LuaSource/liblua.a
 
 install:

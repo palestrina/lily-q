@@ -36,7 +36,6 @@ pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
 
 __u16 myExitCode;
 
-
 int stop = 0;
 bool stillGoing = true;
 bool leftShift, rightShift;
@@ -47,6 +46,7 @@ lua_Number epoch;
 lua_Number eventTime = 0;
 static bool	noDataInBuffer = true;
 static bool gapBetweenKeystrokes;
+int lookupTableStackPosition = -2;
 lua_State* L;
 lua_State* MIDIstack;
 int fdo, fdi;
@@ -59,10 +59,6 @@ struct schedule_struct {
     lua_Number time;
     int ref;
 };
-
-
-
-
 
 /* Keycodes that will get hooked and not sent on immediately */
 
@@ -123,13 +119,20 @@ static int GetTime(lua_State * L)
 	return 1;
 }
 
-/*
-static int CheckNoDataWaiting(lua_State * L)
+static int DisableNumericKeypad(lua_State * L)
 {
-	lua_pushboolean(L, noDataInBuffer);
-	return 1;
+	if (lua_toboolean(L, -1))
+	{
+		printf("Numeric keypad disabled.\n");
+		lookupTableStackPosition = -3;
+	}
+	else
+	{
+		printf("Numeric keypad enabled.\n");
+		lookupTableStackPosition = -2;
+	}
+	return 0;
 }
-*/
 
 static void *DoEvent(void *twoArgs)
 {
@@ -151,8 +154,6 @@ static void *DoEvent(void *twoArgs)
         pthread_mutex_lock(&myMutex);
         lua_getglobal(L, "DoScheduledEvent");
         lua_rawgeti(L, LUA_REGISTRYINDEX, args->ref);
-        //luaL_checktype(L, -1, LUA_TTABLE);
-        //printf("%f\n", getTimer());
         lua_call(L, 1, 0);
         luaL_unref(L, LUA_REGISTRYINDEX, args->ref);
         pthread_mutex_unlock(&myMutex);
@@ -197,7 +198,6 @@ static int SleepUntil(lua_State * L)
 	if (startSleep < endSleep) {
 		micros = (int)((endSleep - startSleep) * 1000000.0);
 		usleep(micros);
-		//printf("Sleeping %d microseconds\n", micros);
 	}
 	return 0;
 }
@@ -213,12 +213,6 @@ static int SendMidiData(lua_State * L)
 		printf("Error, MIDI data should be a string!\n");
 	else if (lua_isstring(L, 1)) {
 		sendData = lua_tolstring(L, 1, &length);
-		//printf("Length %d: ", length);
-		//for (i=0; i<length; i++) {
-		//    printf("%02X ", (unsigned char) sendData[i]);
-		//}
-		//printf("\n");
-		
 		snd_rawmidi_write(handle_out, sendData, length);
 	}
 	
@@ -316,14 +310,15 @@ void addToBuffer(unsigned char b)
 
 static void * KeypadInput()
 {
-    int i;
+    int i, j;
     char keyStroke[2] = { 0, 0 };
     const char * deviceName;
     bool fixFunctionKeys;
 
-    /* When the program is launched from the terminal, it can grab the input
-       before the return button is released, which Linux interprets as the
-       return key on repeat. This waits for the return key to be released.
+    /* When the program is launched from the terminal, it can grab the 
+     * input before the return button is released, which Linux 
+     * interprets as the return key on repeat. This waits for the return
+     *  key to be released.
     */
     sleep(1);
     
@@ -381,11 +376,19 @@ static void * KeypadInput()
     else {
         myExitCode = KEY_F8;
     }
+    j = i;
+ 
+    lua_newtable(L); // Table of key values to use when LilyQuick disabled
+    while (i < 15) {
+        lua_pushinteger(L, numericCodes[i++]);
+        lua_pushinteger(L, numericCodes[i++]);
+        lua_settable(L, -3);
+	}
          
     lua_newtable(L);
-    while (numericCodes[i] != 0) {
-        lua_pushinteger(L, numericCodes[i++]);
-        lua_pushinteger(L, numericCodes[i++]);
+    while (numericCodes[j] != 0) {
+        lua_pushinteger(L, numericCodes[j++]);
+        lua_pushinteger(L, numericCodes[j++]);
         lua_settable(L, -3);
     }
     pthread_mutex_unlock(&myMutex);
@@ -406,9 +409,10 @@ static void * KeypadInput()
             // printf("%d %d %d\n", ev.type, ev.value, ev.code);
             pthread_mutex_lock(&myMutex);
             lua_pushinteger(L, (int) ev.code);
-            lua_gettable(L, -2);
-           
-            if (lua_isnil(L, -1)) { /* Not the numeric keypad? Send it on */
+            lua_gettable(L, lookupTableStackPosition);
+             /* Not the numeric keypad? Send it on */
+            /* Also pass it on if LilyQuick is diabled */
+            if (lua_isnil(L, -1)) {
                 lua_pop(L, 1);
                 if (ev.code == KEY_RIGHTSHIFT)
                 {
@@ -652,8 +656,6 @@ int main(int argc, char* argv[])
     luaL_openlibs(L);
 	lua_pushcfunction(L, SendMidiData);
 	lua_setglobal(L, "SendMidiData");
-	//lua_pushcfunction(L, CheckNoDataWaiting);
-	//lua_setglobal(L, "CheckNoDataWaiting");
 	lua_pushcfunction(L, SleepUntil);
 	lua_setglobal(L, "SleepUntil");
 	lua_pushcfunction(L, SendKeystroke);
@@ -664,6 +666,8 @@ int main(int argc, char* argv[])
 	lua_setglobal(L, "GetTime");
 	lua_pushcfunction(L, ScheduleEvent);
 	lua_setglobal(L, "ScheduleEvent");
+	lua_pushcfunction(L, DisableNumericKeypad);
+	lua_setglobal(L, "DisableNumericKeypad");
 	
 	myDir = (char *) malloc(dirSize);
  	workingDir = (char *) malloc(dirSize);

@@ -61,9 +61,11 @@ SHIFT F10/F17 Set note lengths. For notes longer than whole or shorter than thir
 
 F11/F18 Toggles rhythm counting (see below).
 
-F12/F19 (and any other key on the numeric keypad) can be customized at your pleasure.
+F12/F19 lets you adjust the octave of a note that has just been entered (useful for the first note of a relative octave passage). Press F12/F19, then (on the numeric keypad) '+' to raise an octave, or '-' to lower an octave.
 
-RHYTHM COUNTING (NEW!)
+SHIFT F12/F19 disables/enables the numeric keypad. If you are typing some numbers into another program and you get r8 r2 etc, press shift F12/F19 make the numeric keypad behave as it normally does without quitting LilyQuick and losing your key/time settings.
+
+RHYTHM COUNTING
 
 When rhythm counting is turned on, LilyQuick will keep track of rhythms you have entered and automatically enter a bar check ("|") and a newline. Enter your measure length with F10/F17.
 

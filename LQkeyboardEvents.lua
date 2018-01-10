@@ -37,14 +37,14 @@ keystrokesInward = {
     ["SHIFT \010"] = { InitSetNoteLengths },
     ["\011"] = { ToggleRhythmCounting },  -- F11 or F18.
     ["SHIFT \011"] = nil,
-    ["\012"] = nil, -- F12 or F19
-    ["SHIFT \012"] = nil,
+    ["\012"] = { AdjustingOctavesInit }, -- F12 or F19
+    ["SHIFT \012"] = { ToggleDisabled },
     ["C"] = { PerformUndo }, -- clear/Numlock
     ["="] = "~", 
     ["."] = { AddDot },
     ["+"] = { Articulation, { "(", ")" } }, 
 	["*"] = { EnharmonicChange },
-	["-"] = { Articulation, "\\fermata" }, -- or your choice of articulation
+	["-"] = { Articulation,  { "\\startTrillSpan", "\\stopTrillSpan" } }, -- or your choice of articulation
 	["SHIFT E"] = { EnterKey, true },
     ["E"] = { EnterKey },
     ["/"] = "~",

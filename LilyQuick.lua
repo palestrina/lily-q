@@ -1,4 +1,4 @@
-VERSION = "0.951" .. utf8.char(0x3b2) -- beta
+VERSION = "1.0"
 if _VERSION ~= "Lua 5.3" then
     print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
     return true
@@ -23,7 +23,6 @@ local hasRhythmNumberBeenSent = false
 local ProcessEvent = {}
 local NotesCurrentlyOn = {}
 eventsSent = { n = 0 }
---local keysSent = {}
 local keyNoteSent = false
 keyNoteOffTime = math.huge
 local sendStraightThrough = false
@@ -39,6 +38,9 @@ local isNote
 local bracketStack = {}
 local barLength
 local barLengthNumber = 1.0
+local recentNewLine = true
+local isNewLine = false
+local isDisabled = false
 
 -- ROOT has been pushed by the C caller
 dofile(ROOT .. "/Auxillary_stuff.lua")
@@ -246,6 +248,8 @@ function PerformUndo()
         tupletRatio = myUndo.tupletRatio
         myDotValue = myUndo.myDotValue
         rhythmMultiplier = myUndo.rhythmMultiplier
+        -- recentNewLine will soon be set to isNewLine anyway
+        isNewLine = myUndo.recentNewLine 
         bracketStack[#bracketStack+1] = myUndo.bracketStack -- may well be nil
     end
 end
@@ -257,6 +261,7 @@ function EnterKey(_, shifted)
     end
     cumulativeNoteLength = 0.0
     myDotValue = false
+    isNewLine = true
     if shifted then
         SendString("") -- when shifted this just resets the bar's rhythmic values
     else
@@ -412,12 +417,59 @@ local function FindNoteName(note, lastNote, lastNoteName)
     return name, suffix
 end
 
+local function AdjustOctave(adjustment)
+    local top = eventsSent.n
+    if top then
+        local p = top
+        local event = eventsSent[p]
+        local toDelete = ""
+        while event and event.isNote == nil do
+            toDelete = toDelete .. event.stringSent
+            p = p - 1
+            event = eventsSent[p]
+        end
+         if event then
+            local note, octaves, rest = event.stringSent:match("(%s*%l+)([%,%']*)(.*)")
+            if note then
+                DeleteString(octaves .. rest .. toDelete)
+                local myOctave = #octaves
+                if octaves:sub(1,1) == "," then
+                    myOctave = -myOctave
+                end
+                myOctave = myOctave + adjustment
+                local marker = "'"
+                if myOctave < 0 then
+                    marker = ","
+                    myOctave = -myOctave
+                end
+                octaves = string_rep(marker, myOctave)
+                SendString(octaves .. rest .. toDelete, true)
+                event.stringSent = note .. octaves .. rest
+            end    
+        end
+    end
+end
+
+local function AdjustingOctaves(c)
+	auxiliaryKeystroke = false
+	if c == "+" then
+		AdjustOctave(1)
+	elseif c == "-" then
+		AdjustOctave(-1)
+	end
+end
+
+function AdjustingOctavesInit()
+	auxiliaryKeystroke = AdjustingOctaves
+end
+
 local function AddingWholeBarRests(c)
     if c == "E" then
         lastRhythm = false
         myDotValue = false
         cumulativeNoteLength = 0.0
         SendString("\n") -- maybe " |\n" if you prefer a bar check
+        isNewLine = true
         auxiliaryKeystroke = false
     elseif c:match("%d") then
         SendString(c)
@@ -436,7 +488,7 @@ local function RevertRhythm(ratio)
     end
 end
 
-local myTupletString = " \\tuplet "
+local myTupletString = "\\tuplet "
 local function EnteringTuplets(c)
     if c:match("[%d%/]") then
         tupletRatio = tupletRatio .. c
@@ -465,6 +517,9 @@ end
 function Tuplets(ratio)
     if ratio then
         ratio = ratio:match("%d+%/%d+")
+    end
+    if not recentNewLine then
+		SendString(" ")
     end
     SendString(myTupletString)
     myDotValue = false
@@ -555,11 +610,13 @@ function AddNote(value, isShifted)
         myDotValue = thisLength * 0.5
         if IsClose(total, barLengthNumber) then -- end of a bar
             lineEndingSuffix = " |\n"
+            isNewLine = true
             eraseLineCode = eraseLine
             cumulativeNoteLength = 0.0
             myDotValue = false
         elseif total > barLengthNumber then -- a tie is intended
             lineEndingSuffix = "~ |\n"
+            isNewLine = true
             eraseLineCode = eraseLine
             value = DurationToValue(barLengthNumber - cumulativeNoteLength) or value
             cumulativeNoteLength = 0.0
@@ -584,22 +641,27 @@ function AddNote(value, isShifted)
         lastRhythm = value
         hasRhythmNumberBeenSent = true
     end
+    local leadingSpace = " "
+    --print(recentNewLine)
+    if recentNewLine then
+		leadingSpace = ""
+    end
     if note then
         isNote = true
         name, suffix = FindNoteName(note, lastNote, lastNoteName)
         lastNote = note
         lastNoteName = name
-        name = " " .. name .. suffix .. value
+        name = leadingSpace .. name .. suffix .. value
         if chordHash then
             if chordHash == lastChord then
-                name = " q" .. value
+                name = leadingSpace .. "q" .. value
             else
                 local lastNoteInChord, lastNoteNameInChord = lastNote, lastNoteName
                 -- strip suffix of first note so it doesn't get doubled
                 name = name:gsub("[%'%,]", "")
                 -- work out all the notes of the chord
                 name = name:match("[a-g][eis]*[%'%,]*")
-                name = { " <", name, suffix } -- will be concatenated later
+                name = { leadingSpace, "<", name, suffix } -- will be concatenated later
                 for i = 2, #(notes) do
                     local n, s = FindNoteName(notes[i], lastNoteInChord, lastNoteNameInChord)
                     AddToTable(name, " ", n, s)
@@ -613,9 +675,9 @@ function AddNote(value, isShifted)
         end
     else
         if isShifted then
-            name = " s" .. value
+            name = leadingSpace .. "s" .. value
         else
-            name = " r" .. value
+            name = leadingSpace .. "r" .. value
         end
     end
     lastChord = lastChord or false
@@ -747,6 +809,14 @@ function ToggleRhythmCounting()
     end
 end
 
+function ToggleDisabled()
+	isDisabled = not isDisabled
+	if isDisabled then
+		auxiliaryKeystroke = false
+	end
+	DisableNumericKeypad(isDisabled)
+end
+
 -- NO KEYBOARD FUNCTION INITIALISERS BELOW HERE
 dofile(ROOT .. "/LQkeyboardEvents.lua")
 if type(LQCustomKeyboardEvents) == "table" then
@@ -860,6 +930,7 @@ end
 
 function KeystrokeReceived(c, shiftOn)
     isNote = nil
+    isNewLine = false
     if auxiliaryKeystroke then
         auxiliaryKeystroke(c)
         return false
@@ -878,8 +949,7 @@ function KeystrokeReceived(c, shiftOn)
             tupletRatio = tupletRatio,
             myDotValue = myDotValue,
             rhythmMultiplier = rhythmMultiplier,
-            isNote = isNote,
-            
+            recentNewLine = recentNewLine,            
         }
         if type(params) == "table" then
             hasRhythmNumberBeenSent = params[1](params[2], shiftOn)
@@ -888,8 +958,10 @@ function KeystrokeReceived(c, shiftOn)
             SendString(params)
             hasRhythmNumberBeenSent = false
         end
+        recentNewLine = isNewLine
         if myKeyStrokesSent[1] then
             currentUndo.stringSent = table.concat(myKeyStrokesSent)
+            currentUndo.isNote = isNote
             local n = eventsSent.n + 1
             eventsSent[n] = currentUndo
             eventsSent.n = n
@@ -936,13 +1008,6 @@ function PlayFlourish()
         ScheduleEvent(t + chord[1], { SendMidiData, message })
     end
     PlayFlourish = nil
-end
-
-function KeyTest()
-    for i =  85, 95 do
-        SendKeyCombo(100, i)
-        SendString("\n" .. i, true)
-    end
 end
 
 return false
