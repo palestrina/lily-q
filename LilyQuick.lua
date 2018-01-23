@@ -1,4 +1,4 @@
-VERSION = "1.0"
+VERSION = "1.01"
 if _VERSION ~= "Lua 5.3" then
     print("Error, running " .. _VERSION .. ", it should be Lua 5.3")
     return true
@@ -248,8 +248,9 @@ function PerformUndo()
         tupletRatio = myUndo.tupletRatio
         myDotValue = myUndo.myDotValue
         rhythmMultiplier = myUndo.rhythmMultiplier
+        hasRhythmNumberBeenSent = myUndo.hasRhythmNumberBeenSent
         -- recentNewLine will soon be set to isNewLine anyway
-        isNewLine = myUndo.recentNewLine 
+        isNewLine = myUndo.recentNewLine
         bracketStack[#bracketStack+1] = myUndo.bracketStack -- may well be nil
     end
 end
@@ -694,7 +695,7 @@ function AddNote(value, isShifted)
         end
         SendString(lineEndingSuffix)
     end
-        return hasRhythmNumberBeenSent
+        return
 end
 
 -- these note lengths don’t change through different layouts
@@ -949,15 +950,17 @@ function KeystrokeReceived(c, shiftOn)
             tupletRatio = tupletRatio,
             myDotValue = myDotValue,
             rhythmMultiplier = rhythmMultiplier,
-            recentNewLine = recentNewLine,            
+            recentNewLine = recentNewLine,
+            hasRhythmNumberBeenSent = hasRhythmNumberBeenSent,           
         }
         if type(params) == "table" then
-            hasRhythmNumberBeenSent = params[1](params[2], shiftOn)
+            params[1](params[2], shiftOn)
         else
             --print(params)
             SendString(params)
             hasRhythmNumberBeenSent = false
         end
+        currentUndo.hasRhythmNumberBeenSent = hasRhythmNumberBeenSent       
         recentNewLine = isNewLine
         if myKeyStrokesSent[1] then
             currentUndo.stringSent = table.concat(myKeyStrokesSent)
