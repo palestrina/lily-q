@@ -7,7 +7,7 @@
 -- need to be escaped.
 -- see https://www.lua.org/manual/5.3/manual.html#3.1
 
-local OpenSynthCommand = [[su -c "qsynth --midi-driver=alsa_seq &" vaughan]]
+local OpenSynthCommand = [[su -c "qsynth --midi-driver=alsa_seq &" ml]]
 -- (replace vaughan with your username)
 
 -- This runs Qsynth as user vaughan. Running as root may lose existing settings.
@@ -23,6 +23,9 @@ LinuxOpenSynth = function()
 		QuitSynth = nil -- will now not be called on quitting
 	end
 end
+
+ LinuxOpenSynth = function()
+ end
 
 -- Routine to close Qsynth either before 
 
