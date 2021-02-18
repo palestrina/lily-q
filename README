@@ -61,6 +61,8 @@ SHIFT F10/F17 Set note lengths. For notes longer than whole or shorter than thir
 
 F11/F18 Toggles rhythm counting (see below).
 
+SHIFT F11/F18 Toggle midi keyboard only: continues using last rhythm without needing keypad input
+
 F12/F19 lets you adjust the octave of a note that has just been entered (useful for the first note of a relative octave passage). Press F12/F19, then (on the numeric keypad) '+' to raise an octave, or '-' to lower an octave.
 
 SHIFT F12/F19 disables/enables the numeric keypad. If you are typing some numbers into another program and you get r8 r2 etc, press shift F12/F19 make the numeric keypad behave as it normally does without quitting LilyQuick and losing your key/time settings.

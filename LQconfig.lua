@@ -23,6 +23,9 @@ PreferredPatch = 1 -- Bright piano works nicely in Fluidsynth
 -- Input in absolute mode or relative mode?
 AbsoluteMode = true
 
+-- notes from midi using last rhythm
+midiOnly = false
+
 -- add other languages to Auxillary_stuff.lua if needed
 inputLanguage = "nederlands"
 
