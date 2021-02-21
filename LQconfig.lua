@@ -1,9 +1,9 @@
 -- You should be able to find your computer keyboard somewhere in /dev/input
-deviceName = "/dev/input/by-id/usb-0d3d_USBPS2-event-kbd"
+deviceName = "/dev/input/by-id/usb-Apple__Inc_Apple_Keyboard-event-kbd"
 
 -- Something that identifies your MIDI keyboard (enough to be unique)
 -- type amidi -l for a listing of MIDI devices
-MIDIKeyboardName = "ION"
+MIDIKeyboardName = "KeyStudio MIDI"
 
 -- If the computer keyboard is an Apple Extended Keyboard, use F16-F19 instead of F9-F12
 AppleExtendedKeyboard = false
@@ -22,9 +22,6 @@ PreferredPatch = 1 -- Bright piano works nicely in Fluidsynth
 
 -- Input in absolute mode or relative mode?
 AbsoluteMode = true
-
--- notes from midi using last rhythm
-midiOnly = false
 
 -- add other languages to Auxillary_stuff.lua if needed
 inputLanguage = "nederlands"
@@ -47,6 +44,9 @@ longestNoteOnKeypad = "1"
 -- Should every note be followed by its rhythm?
 -- eg. a2 b2 c8 d8 e8 f8
 explicitRhythms = false
+
+-- notes from midi using last rhythm
+midiOnly = false
 
 -- Should each line (following a bar check) have the first rhythm explicitly stated?
 --[[  eg
