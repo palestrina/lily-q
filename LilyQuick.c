@@ -49,7 +49,7 @@ static bool gapBetweenKeystrokes;
 int lookupTableStackPosition = -2;
 lua_State* L;
 lua_State* MIDIstack;
-int fdo, fdi;
+int fdo, fdi, fdiAux;
 struct uinput_user_dev uidev;
 struct input_event ev, syncEv, outEv;
 snd_rawmidi_t  *handle_in = 0;
@@ -313,7 +313,10 @@ static void * KeypadInput()
     int i, j;
     char keyStroke[2] = { 0, 0 };
     const char * deviceName;
+    const char * auxDeviceName;
     bool fixFunctionKeys;
+    bool auxDevice=false;
+    fd_set read_fds; 
 
     /* When the program is launched from the terminal, it can grab the 
      * input before the return button is released, which Linux 
@@ -341,17 +344,36 @@ static void * KeypadInput()
     pthread_mutex_unlock(&myMutex);
 
     fdo = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-    if(fdo < 0) die("error: open");
+    if(fdo < 0) die("/dev/uinput error: open");
     
     fdi = open(deviceName, O_RDONLY);
-    if(fdi < 0) die("error: open");
+    if(fdi < 0) {
+	    printf("failed %s\n",deviceName);
+	    die("fdi error: open");
+	    }
+
+    lua_getglobal(L,"auxDeviceName");
+    if(lua_isnil(L,-1)==0){
+      auxDevice=true;
+      auxDeviceName = luaL_checkstring(L,-1);
+      printf("Using %s as aux input device\n",auxDeviceName);
+      lua_pop(L,1);
+      }
+
+    if(auxDevice){
+        fdiAux = open(auxDeviceName, O_RDONLY);
+        if(fdiAux < 0) {
+    	    printf("failed to open %s\n",auxDeviceName);
+    	    auxDevice=false;
+    	    }
+	else if(ioctl(fdiAux, EVIOCGRAB, 1) < 0) die("error: ioctl 354 on aux input");
+        }
 
     if(ioctl(fdi, EVIOCGRAB, 1) < 0) die("error: ioctl 354");
 
     if(ioctl(fdo, UI_SET_EVBIT, EV_SYN) < 0) die("error: ioctl 356");
     if(ioctl(fdo, UI_SET_EVBIT, EV_KEY) < 0) die("error: ioctl 357");
     //if(ioctl(fdo, UI_SET_EVBIT, EV_MSC) < 0) die("error: ioctl 41");
-
     for(i = 0; i < KEY_MAX; ++i)
         if(ioctl(fdo, UI_SET_KEYBIT, i) < 0) die("error: ioctl");
 
@@ -395,9 +417,23 @@ static void * KeypadInput()
     
     while(stillGoing)
     {
-        if(read(fdi, &ev, sizeof(struct input_event)) < 0)
-            die("error: read");
-
+	if(auxDevice){
+            FD_ZERO(&read_fds);
+            FD_SET(fdi,&read_fds);
+            FD_SET(fdiAux,&read_fds);
+            select(FD_SETSIZE,&read_fds,NULL,NULL,NULL);
+            if(FD_ISSET(fdi,&read_fds)){
+              if(read(fdi, &ev, sizeof(struct input_event)) < 0)
+    	          die("error: read");
+            }
+	    else if(FD_ISSET(fdiAux,&read_fds)){
+    	            if(read(fdiAux, &ev, sizeof(struct input_event)) < 0)
+                        die("error: read aux");
+                  }
+         } else {
+    	      if(read(fdi, &ev, sizeof(struct input_event)) < 0)
+    	          die("error: read");
+	 }
         ev.time.tv_sec = 0;
         ev.time.tv_usec = 0;
 
@@ -587,13 +623,13 @@ void *MIDIInput()
     lua_call(MIDIstack, 0, 0);
 	pthread_mutex_unlock(&myMutex);
 
-	err = snd_rawmidi_open(&handle_in, NULL, device_in, 0);
+	err = snd_rawmidi_open(&handle_in, NULL, device_in, SND_RAWMIDI_NONBLOCK);
 	if (err) {
 		printf("snd_rawmidi_open %s failed: %d\n", device_in, err);
 		printf("Error %i (%s)\n", err, snd_strerror(err));
-		return NULL;
+		die("Unable to open midi device");
 	} else {
-		//printf("%s opened!\n", device_in);
+	        //printf("%s opened!\n", device_in);
 	}
 	
 	err = snd_rawmidi_open(NULL, &handle_out, "virtual", SND_RAWMIDI_SYNC);
@@ -602,7 +638,7 @@ void *MIDIInput()
 		printf("Error %i (%s)\n", err, snd_strerror(err));
 		return NULL;
 	} else {
-		//printf("Virtual MIDI opened!\n", device_in);
+	        //printf("Virtual MIDI opened!\n", device_in);
 	}
 	
 	for (i=1; i<=20; i++) { // try twenty times (20 seconds)
@@ -708,7 +744,6 @@ int main(int argc, char* argv[])
         return 1;
     }
 //*/
-    
     rc = pthread_create(&MIDIThread, NULL, &MIDIInput, NULL);
     if (rc) {
         printf("Error creating MIDIThread, error no %d\n", rc);

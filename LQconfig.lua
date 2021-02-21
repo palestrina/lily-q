@@ -1,6 +1,9 @@
 -- You should be able to find your computer keyboard somewhere in /dev/input
 deviceName = "/dev/input/by-id/usb-Apple__Inc_Apple_Keyboard-event-kbd"
 
+-- Optional second keyboard (like) device - here a footswitch
+-- auxDeviceName = "/dev/input/by-id/usb-RDing_FootSwitchV1.0-event-kbd"
+
 -- Something that identifies your MIDI keyboard (enough to be unique)
 -- type amidi -l for a listing of MIDI devices
 MIDIKeyboardName = "KeyStudio MIDI"
