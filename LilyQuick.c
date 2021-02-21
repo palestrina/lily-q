@@ -587,11 +587,11 @@ void *MIDIInput()
     lua_call(MIDIstack, 0, 0);
 	pthread_mutex_unlock(&myMutex);
 
-	err = snd_rawmidi_open(&handle_in, NULL, device_in, 0);
+	err = snd_rawmidi_open(&handle_in, NULL, device_in, SND_RAWMIDI_NONBLOCK);
 	if (err) {
 		printf("snd_rawmidi_open %s failed: %d\n", device_in, err);
 		printf("Error %i (%s)\n", err, snd_strerror(err));
-		return NULL;
+		die("Unable to open midi device");
 	} else {
 		//printf("%s opened!\n", device_in);
 	}
