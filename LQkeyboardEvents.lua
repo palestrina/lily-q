@@ -26,10 +26,10 @@ keystrokesInward = {
     ["6"] = { AddNote, "1" },
     -- end commenting --]]
     
-	["7"] = { AddWholeBarRestsInit },
-	["8"] = { Tuplets },
-	-- for fixed tuplets, use this line
-	-- ["8"] = { Tuplets, "3/2" },
+    ["7"] = { AddWholeBarRestsInit },
+    ["8"] = { Tuplets, "3/2" },
+    -- for fixed tuplets, use this line
+    -- ["8"] = { Tuplets, "3/2" },
     ["9"] = { CloseBrackets },
     ["\009"] = { InitChangeKey }, -- F9 or F16
     ["SHIFT \009"] = { ToggleAbsoluteRelative },
@@ -42,13 +42,13 @@ keystrokesInward = {
     ["C"] = { PerformUndo }, -- clear/Numlock
     ["="] = "~", 
     ["."] = { AddDot },
-    ["+"] = { Articulation, { "(", ")" } }, 
-	["*"] = { EnharmonicChange },
-	["-"] = { Articulation,  { "\\startTrillSpan", "\\stopTrillSpan" } }, -- or your choice of articulation
-	["SHIFT E"] = { EnterKey, true },
+    ["+"] = { StartAcciaccatura },
+    --["+"] = { Articulation, { "(", ")" } }, 
+    ["*"] = { EnharmonicChange },
+    ["-"] = { StartGrace }, --{ Articulation,  { "\\fermata" } }, -- or your choice of articulation
+    ["SHIFT E"] = { EnterKey, true },
     ["E"] = { EnterKey },
     ["/"] = "~",
 }
-
 
 

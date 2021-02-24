@@ -41,6 +41,8 @@ local barLengthNumber = 1.0
 local recentNewLine = true
 local isNewLine = false
 local isDisabled = false
+local acciaccaturaOn = false
+local graceOn = false
 
 -- ROOT has been pushed by the C caller
 dofile(ROOT .. "/Auxillary_stuff.lua")
@@ -305,6 +307,29 @@ local spaceBeforeArticulations = spaceBeforeArticulations or ""
 local articulationsSent = {}
 local emptyEvent = {}
 
+local accText = myAcciaccatura or "\\acciaccatura"
+
+function StartAcciaccatura()
+    if not recentNewLine then
+        SendString(" ")
+    end    
+    SendString(accText)
+    acciaccaturaOn = true
+end
+
+local function FinishGrace()
+    graceOn = false
+end
+
+function StartGrace()
+    if not recentNewLine then
+        SendString(" ")
+    end    SendString("\\grace {")
+    bracketStack[#bracketStack+1] = { f = FinishGrace }
+    auxiliaryKeystroke = false
+    graceOn = true
+end
+
 function Articulation(a)
     local spaceBeforeArticulations = spaceBeforeArticulations or ""
     local myArt
@@ -452,16 +477,16 @@ local function AdjustOctave(adjustment)
 end
 
 local function AdjustingOctaves(c)
-	auxiliaryKeystroke = false
-	if c == "+" then
-		AdjustOctave(1)
-	elseif c == "-" then
-		AdjustOctave(-1)
-	end
+    auxiliaryKeystroke = false
+    if c == "+" then
+        AdjustOctave(1)
+    elseif c == "-" then
+        AdjustOctave(-1)
+    end
 end
 
 function AdjustingOctavesInit()
-	auxiliaryKeystroke = AdjustingOctaves
+    auxiliaryKeystroke = AdjustingOctaves
 end
 
 local function AddingWholeBarRests(c)
@@ -472,6 +497,7 @@ local function AddingWholeBarRests(c)
         SendString("\n") -- maybe " |\n" if you prefer a bar check
         isNewLine = true
         auxiliaryKeystroke = false
+        recentNewLine = true
     elseif c:match("%d") then
         SendString(c)
     end
@@ -520,9 +546,9 @@ function Tuplets(ratio)
         ratio = ratio:match("%d+%/%d+")
     end
     if not recentNewLine then
-		SendString(" ")
+        SendString(" ")
     end
-    SendString(myTupletString)
+        SendString(myTupletString)
     myDotValue = false
     if ratio then
         tupletRatio = ratio
@@ -607,6 +633,12 @@ function AddNote(value, isShifted)
     value = value or savedRhythm
     if rhythmCounting then
         local thisLength = ValueToDuration(value) * rhythmMultiplier
+        if acciaccaturaOn then
+            thisLength = 0
+            acciaccaturaOn = false
+        elseif graceOn then
+            thisLength = 0
+        end
         local total = cumulativeNoteLength + thisLength
         myDotValue = thisLength * 0.5
         if IsClose(total, barLengthNumber) then -- end of a bar
@@ -645,7 +677,7 @@ function AddNote(value, isShifted)
     local leadingSpace = " "
     --print(recentNewLine)
     if recentNewLine then
-		leadingSpace = ""
+        leadingSpace = ""
     end
     if note then
         isNote = true
@@ -811,11 +843,11 @@ function ToggleRhythmCounting()
 end
 
 function ToggleDisabled()
-	isDisabled = not isDisabled
-	if isDisabled then
-		auxiliaryKeystroke = false
-	end
-	DisableNumericKeypad(isDisabled)
+    isDisabled = not isDisabled
+    if isDisabled then
+        auxiliaryKeystroke = false
+    end
+    DisableNumericKeypad(isDisabled)
 end
 
 -- NO KEYBOARD FUNCTION INITIALISERS BELOW HERE

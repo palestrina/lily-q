@@ -1,5 +1,5 @@
 -- You should be able to find your computer keyboard somewhere in /dev/input
-deviceName = "/dev/input/by-id/usb-Apple__Inc_Apple_Keyboard-event-kbd"
+deviceName = "/dev/input/by-id/usb-CHICONY_USB_NetVista_Full_Width_Keyboard-event-kbd"
 
 -- Something that identifies your MIDI keyboard (enough to be unique)
 -- type amidi -l for a listing of MIDI devices
@@ -61,7 +61,11 @@ fixFunctionKeys = true
 
 -- if this is true, LilyQuick will attempt to run the function CloseSynth
 -- (defined in Linux.lua) on closing. You may wish to customise that function.
-quitSynthOnClose = true
+
+-- 2021 Opening the synth in Debian 10 doesn’t seem to work. The
+-- workaround is to open the synth before LilyQuick. But then it is
+-- annoying if it closes. So I’ve changed this to false now.
+quitSynthOnClose = false
 
 -- if this is true, LilyQuick will attempt to run CloseSynth before opening
 -- its own synth. This may be useful if you normally use your synth with

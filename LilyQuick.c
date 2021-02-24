@@ -16,7 +16,7 @@
 #include "LuaSource/lualib.h"
 #include "LuaSource/lauxlib.h"
 
-typedef int	bool;
+typedef int bool;
 #define true 1
 #define false 0
 
@@ -44,7 +44,7 @@ int messageCounter = 0;
 int bytesExpected = 0;
 lua_Number epoch;
 lua_Number eventTime = 0;
-static bool	noDataInBuffer = true;
+static bool noDataInBuffer = true;
 static bool gapBetweenKeystrokes;
 int lookupTableStackPosition = -2;
 lua_State* L;
@@ -108,30 +108,30 @@ static void PrintStack(lua_State * L)
 
 static lua_Number getTimer()
 {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (lua_Number) tv.tv_sec - epoch + (lua_Number) tv.tv_usec * 1.0e-6;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (lua_Number) tv.tv_sec - epoch + (lua_Number) tv.tv_usec * 1.0e-6;
 }
 
 static int GetTime(lua_State * L)
 {
-	lua_pushnumber(L, getTimer());
-	return 1;
+    lua_pushnumber(L, getTimer());
+    return 1;
 }
 
 static int DisableNumericKeypad(lua_State * L)
 {
-	if (lua_toboolean(L, -1))
-	{
-		printf("Numeric keypad disabled.\n");
-		lookupTableStackPosition = -3;
-	}
-	else
-	{
-		printf("Numeric keypad enabled.\n");
-		lookupTableStackPosition = -2;
-	}
-	return 0;
+    if (lua_toboolean(L, -1))
+    {
+        printf("Numeric keypad disabled.\n");
+        lookupTableStackPosition = -3;
+    }
+    else
+    {
+        printf("Numeric keypad enabled.\n");
+        lookupTableStackPosition = -2;
+    }
+    return 0;
 }
 
 static void *DoEvent(void *twoArgs)
@@ -168,18 +168,18 @@ static void *DoEvent(void *twoArgs)
 
 static int ScheduleEvent(lua_State * L)
 {
-	// The scheduled event comes in a table: add it to the registry
-	int rc;
-	bool flag;
-	pthread_t doEventThread;
-	
-	luaL_checktype(L, 1, LUA_TNUMBER);
-	luaL_checktype(L, 2, LUA_TTABLE);
-	lua_settop(L, 2);
-	struct schedule_struct *myArgs = malloc(sizeof *myArgs);
-	
-	myArgs->ref = luaL_ref(L, LUA_REGISTRYINDEX);
-	myArgs->time = luaL_checknumber(L, 1);
+    // The scheduled event comes in a table: add it to the registry
+    int rc;
+    bool flag;
+    pthread_t doEventThread;
+    
+    luaL_checktype(L, 1, LUA_TNUMBER);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_settop(L, 2);
+    struct schedule_struct *myArgs = malloc(sizeof *myArgs);
+    
+    myArgs->ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    myArgs->time = luaL_checknumber(L, 1);
  
     rc = pthread_create(&doEventThread, NULL, &DoEvent, myArgs);
     if (rc) {
@@ -192,120 +192,120 @@ static int ScheduleEvent(lua_State * L)
 
 static int SleepUntil(lua_State * L)
 {
-	int micros;
-	lua_Number	startSleep = getTimer();
-	lua_Number	endSleep = lua_tonumber(L, 1);
-	if (startSleep < endSleep) {
-		micros = (int)((endSleep - startSleep) * 1000000.0);
-		usleep(micros);
-	}
-	return 0;
+    int micros;
+    lua_Number  startSleep = getTimer();
+    lua_Number  endSleep = lua_tonumber(L, 1);
+    if (startSleep < endSleep) {
+        micros = (int)((endSleep - startSleep) * 1000000.0);
+        usleep(micros);
+    }
+    return 0;
 }
 
 
 static int SendMidiData(lua_State * L)
 // The data is in the form of a lua string
 {
-	size_t length;
-	const char *sendData;
+    size_t length;
+    const char *sendData;
 
-	if (lua_isnumber(L, 1))
-		printf("Error, MIDI data should be a string!\n");
-	else if (lua_isstring(L, 1)) {
-		sendData = lua_tolstring(L, 1, &length);
-		snd_rawmidi_write(handle_out, sendData, length);
-	}
-	
-	return 0;
+    if (lua_isnumber(L, 1))
+        printf("Error, MIDI data should be a string!\n");
+    else if (lua_isstring(L, 1)) {
+        sendData = lua_tolstring(L, 1, &length);
+        snd_rawmidi_write(handle_out, sendData, length);
+    }
+    
+    return 0;
 }
 
 void sendMIDIToLua(int b)
 {
-	int length;
-	unsigned char c;
-	unsigned char *message;
-	//lua_Number timer;
-	if (b == -1) {
-		length = messageCounter;
-		messageCounter = 0;
-		message = midiMessage;
-	} else {
-		//send a single byte straight away
-			length = 1;
-		c = (unsigned char)b;
-		message = &c;
-	}
+    int length;
+    unsigned char c;
+    unsigned char *message;
+    //lua_Number timer;
+    if (b == -1) {
+        length = messageCounter;
+        messageCounter = 0;
+        message = midiMessage;
+    } else {
+        //send a single byte straight away
+            length = 1;
+        c = (unsigned char)b;
+        message = &c;
+    }
 
     pthread_mutex_lock(&myMutex);
   
-	lua_getglobal(MIDIstack, "MidiPacketReceive");
-	//lua_pushnumber(MIDIstack, getTimer());
-	lua_pushlstring(MIDIstack, message, length);
-	if (lua_pcall(MIDIstack, 1, 0, 0) != 0) {
-		printf("%s\n", lua_tostring(MIDIstack, -1));
-	}
-	noDataInBuffer = true;
+    lua_getglobal(MIDIstack, "MidiPacketReceive");
+    //lua_pushnumber(MIDIstack, getTimer());
+    lua_pushlstring(MIDIstack, message, length);
+    if (lua_pcall(MIDIstack, 1, 0, 0) != 0) {
+        printf("%s\n", lua_tostring(MIDIstack, -1));
+    }
+    noDataInBuffer = true;
     pthread_mutex_unlock(&myMutex);
 }
 
 void addToBuffer(unsigned char b)
 {
     //printf("%02X ", b);
-	unsigned char firstNybble = b >> 4;
-	if (b < 0x80) {
-		//it is a data byte
-			if (bytesExpected > 0) {
-			//add it to the buffer
-				midiMessage[messageCounter++] = b;
-			if (--bytesExpected == 0) {
-				sendMIDIToLua(-1);
-			}
-		} else if (bytesExpected < 0) {
-			//add it to the sysex buffer
-		}
-	} else {
-		switch (firstNybble) {
-		case 0xf:
-			switch (b) {
-			case 0xf2:
-				messageCounter = 1;
-				bytesExpected = 2;
-				midiMessage[0] = b;
-				break;
-			case 0xf1:
-			case 0xf3:
-				messageCounter = 1;
-				bytesExpected = 1;
-				midiMessage[0] = b;
-				break;
-			case 0xf0:
-				//start exclusive
-					bytesExpected = -1;
-				//add 0xf0 to the sysex buffer
-					break;
-			case 0xf7:
-				if (bytesExpected < 0) {
-					bytesExpected = 0;
-					//add 0xf7 to sysex buffer and send it
-				}
-				break;
-			default:
-				sendMIDIToLua((int)b);
-			}
-			break;
-		case 0xc:
-		case 0xd:
-			messageCounter = 1;
-			bytesExpected = 1;
-			midiMessage[0] = b;
-			break;
-		default:
-			messageCounter = 1;
-			bytesExpected = 2;
-			midiMessage[0] = b;
-			break;
-		}
-	}
+    unsigned char firstNybble = b >> 4;
+    if (b < 0x80) {
+        //it is a data byte
+            if (bytesExpected > 0) {
+            //add it to the buffer
+                midiMessage[messageCounter++] = b;
+            if (--bytesExpected == 0) {
+                sendMIDIToLua(-1);
+            }
+        } else if (bytesExpected < 0) {
+            //add it to the sysex buffer
+        }
+    } else {
+        switch (firstNybble) {
+        case 0xf:
+            switch (b) {
+            case 0xf2:
+                messageCounter = 1;
+                bytesExpected = 2;
+                midiMessage[0] = b;
+                break;
+            case 0xf1:
+            case 0xf3:
+                messageCounter = 1;
+                bytesExpected = 1;
+                midiMessage[0] = b;
+                break;
+            case 0xf0:
+                //start exclusive
+                    bytesExpected = -1;
+                //add 0xf0 to the sysex buffer
+                    break;
+            case 0xf7:
+                if (bytesExpected < 0) {
+                    bytesExpected = 0;
+                    //add 0xf7 to sysex buffer and send it
+                }
+                break;
+            default:
+                sendMIDIToLua((int)b);
+            }
+            break;
+        case 0xc:
+        case 0xd:
+            messageCounter = 1;
+            bytesExpected = 1;
+            midiMessage[0] = b;
+            break;
+        default:
+            messageCounter = 1;
+            bytesExpected = 2;
+            midiMessage[0] = b;
+            break;
+        }
+    }
 }
 
 static void * KeypadInput()
@@ -341,10 +341,10 @@ static void * KeypadInput()
     pthread_mutex_unlock(&myMutex);
 
     fdo = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-    if(fdo < 0) die("error: open");
+    if(fdo < 0) die("error: open output");
     
     fdi = open(deviceName, O_RDONLY);
-    if(fdi < 0) die("error: open");
+    if(fdi < 0) die("error: open input");
 
     if(ioctl(fdi, EVIOCGRAB, 1) < 0) die("error: ioctl 354");
 
@@ -383,7 +383,7 @@ static void * KeypadInput()
         lua_pushinteger(L, numericCodes[i++]);
         lua_pushinteger(L, numericCodes[i++]);
         lua_settable(L, -3);
-	}
+    }
          
     lua_newtable(L);
     while (numericCodes[j] != 0) {
@@ -567,68 +567,69 @@ static int SendKeyCombo(lua_State * L) {
 
 void *MIDIInput()
 {
-	int err;
-	int i;
-	char buffer[1];
-	int status;
+    int err;
+    int i;
+    char buffer[1];
+    int status;
 
-	const char * device_in;
-	char key[] = "My Unique Registry Key (no, really!)";
+    const char * device_in;
+    char key[] = "My Unique Registry Key (no, really!)";
 
-	pthread_mutex_lock(&myMutex);
-	lua_pushstring(L, key);
-	MIDIstack = lua_newthread(L);
-	 // store the thread in registry to avoid GC
-	lua_settable(L, LUA_REGISTRYINDEX);
+    pthread_mutex_lock(&myMutex);
+    lua_pushstring(L, key);
+    MIDIstack = lua_newthread(L);
+     // store the thread in registry to avoid GC
+    lua_settable(L, LUA_REGISTRYINDEX);
     lua_getglobal(MIDIstack, "AlsaMIDIDeviceID");
     device_in = luaL_checkstring(MIDIstack, -1);
     lua_pop(MIDIstack, 1);
     lua_getglobal(MIDIstack, "LinuxOpenSynth"); // open the synth
     lua_call(MIDIstack, 0, 0);
-	pthread_mutex_unlock(&myMutex);
+    pthread_mutex_unlock(&myMutex);
 
-	err = snd_rawmidi_open(&handle_in, NULL, device_in, 0);
-	if (err) {
-		printf("snd_rawmidi_open %s failed: %d\n", device_in, err);
-		printf("Error %i (%s)\n", err, snd_strerror(err));
-		return NULL;
-	} else {
-		//printf("%s opened!\n", device_in);
-	}
-	
-	err = snd_rawmidi_open(NULL, &handle_out, "virtual", SND_RAWMIDI_SYNC);
-	if (err) {
-		printf("snd_rawmidi_open virtual failed: %d\n", err);
-		printf("Error %i (%s)\n", err, snd_strerror(err));
-		return NULL;
-	} else {
-		//printf("Virtual MIDI opened!\n", device_in);
-	}
-	
-	for (i=1; i<=20; i++) { // try twenty times (20 seconds)
-	    usleep(500000);
-	    pthread_mutex_lock(&myMutex);
-	    lua_getglobal(MIDIstack, "LinuxAconnect");
-	    lua_call(MIDIstack, 0, 1);
-	    if (lua_toboolean(MIDIstack, -1)) {
-	        lua_pop(MIDIstack, 1);
-	        // The synth is connected, play the opening flourish
-	        lua_getglobal(MIDIstack, "PlayFlourish");
+    err = snd_rawmidi_open(&handle_in, NULL, device_in, 0);
+    if (err) {
+        printf("snd_rawmidi_open %s failed: %d\n", device_in, err);
+        printf("Error %i (%s)\n", err, snd_strerror(err));
+        return NULL;
+    } else {
+        //printf("%s opened!\n", device_in);
+    }
+
+    err = snd_rawmidi_open(NULL, &handle_out, "virtual", SND_RAWMIDI_SYNC);
+    if (err) {
+        printf("snd_rawmidi_open virtual failed: %d\n", err);
+        printf("Error %i (%s)\n", err, snd_strerror(err));
+        return NULL;
+    } else {
+        //printf("Virtual MIDI opened!\n", device_in);
+    }
+
+    for (i=1; i<=20; i++) { // try twenty times (20 seconds)
+        usleep(500000);
+        pthread_mutex_lock(&myMutex);
+        lua_getglobal(MIDIstack, "LinuxAconnect");
+        lua_call(MIDIstack, 0, 1);
+        if (lua_toboolean(MIDIstack, -1)) {
+            lua_pop(MIDIstack, 1);
+            // The synth is connected, play the opening flourish
+            lua_getglobal(MIDIstack, "PlayFlourish");
             lua_call(MIDIstack, 0, 0);
-	        pthread_mutex_unlock(&myMutex);
-	        break;
-	    }
-	    lua_pop(MIDIstack, 1);
-	    pthread_mutex_unlock(&myMutex);
-	}
-	
-	status = 0;
- 	while ((status != EAGAIN) && stillGoing) {
-	    status = snd_rawmidi_read(handle_in, buffer, 1);
+            pthread_mutex_unlock(&myMutex);
+            break;
+        }
+        lua_pop(MIDIstack, 1);
+        pthread_mutex_unlock(&myMutex);
+    }
+
+    status = 0;
+    while ((status != EAGAIN) && stillGoing) {
+        status = snd_rawmidi_read(handle_in, buffer, 1);
         if ((status < 0) && (status != -EBUSY) && (status != -EAGAIN)) {
             printf("Problem reading MIDI input.");
         }
         else if (status >= 0) {
+            //printf("Byte %02x\n", (unsigned char) buffer[0]);
             addToBuffer((unsigned char) buffer[0]);
         }
     }
@@ -648,30 +649,30 @@ int main(int argc, char* argv[])
     pthread_t keypadThread;
     pthread_t MIDIThread;
 
-	struct timeval	tv;
-	gettimeofday(&tv, NULL);
-	epoch = (lua_Number) tv.tv_sec;
-	
+    struct timeval  tv;
+    gettimeofday(&tv, NULL);
+    epoch = (lua_Number) tv.tv_sec;
+    
     L = luaL_newstate();
     luaL_openlibs(L);
-	lua_pushcfunction(L, SendMidiData);
-	lua_setglobal(L, "SendMidiData");
-	lua_pushcfunction(L, SleepUntil);
-	lua_setglobal(L, "SleepUntil");
-	lua_pushcfunction(L, SendKeystroke);
-	lua_setglobal(L, "SendKeystroke");
-	lua_pushcfunction(L, SendKeyCombo);
-	lua_setglobal(L, "SendKeyCombo");
-	lua_pushcfunction(L, GetTime);
-	lua_setglobal(L, "GetTime");
-	lua_pushcfunction(L, ScheduleEvent);
-	lua_setglobal(L, "ScheduleEvent");
-	lua_pushcfunction(L, DisableNumericKeypad);
-	lua_setglobal(L, "DisableNumericKeypad");
-	
-	myDir = (char *) malloc(dirSize);
- 	workingDir = (char *) malloc(dirSize);
- 	memset(workingDir, 0, dirSize);
+    lua_pushcfunction(L, SendMidiData);
+    lua_setglobal(L, "SendMidiData");
+    lua_pushcfunction(L, SleepUntil);
+    lua_setglobal(L, "SleepUntil");
+    lua_pushcfunction(L, SendKeystroke);
+    lua_setglobal(L, "SendKeystroke");
+    lua_pushcfunction(L, SendKeyCombo);
+    lua_setglobal(L, "SendKeyCombo");
+    lua_pushcfunction(L, GetTime);
+    lua_setglobal(L, "GetTime");
+    lua_pushcfunction(L, ScheduleEvent);
+    lua_setglobal(L, "ScheduleEvent");
+    lua_pushcfunction(L, DisableNumericKeypad);
+    lua_setglobal(L, "DisableNumericKeypad");
+    
+    myDir = (char *) malloc(dirSize);
+    workingDir = (char *) malloc(dirSize);
+    memset(workingDir, 0, dirSize);
     getcwd(myDir, dirSize);
     if (myDir == NULL) {
         printf("getcwd failed\n");
@@ -689,16 +690,16 @@ int main(int argc, char* argv[])
     strcpy(workingDir, myDir);
     if (luaL_dofile(L, strcat(workingDir, "/LilyQuick.lua")))
         printf("%s\n", lua_tostring(L, -1));
-	
+    
     memset(workingDir, 0, dirSize);
     strcpy(workingDir, myDir);
     if (luaL_dofile(L, strcat(workingDir, "/Linux.lua")))
         printf("%s\n", lua_tostring(L, -1));
-	i = lua_toboolean(L, -1);
-	lua_pop(L, 1);
-	if (i) {
-		return 1;
-	}
+    i = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    if (i) {
+        return 1;
+    }
     free(workingDir);
     free(myDir);
 //*
@@ -725,21 +726,21 @@ int main(int argc, char* argv[])
     pthread_mutex_lock(&myMutex);
     lua_getglobal(L, "AllNotesOff");
     lua_call(L, 0, 0);
-	pthread_mutex_unlock(&myMutex);
+    pthread_mutex_unlock(&myMutex);
 
     snd_rawmidi_close(handle_in);
     snd_rawmidi_close(handle_out);
 
-	// Quit synthesizer if needed
-	pthread_mutex_lock(&myMutex);
-	lua_getglobal(L, "QuitSynth");
-	if (lua_isfunction(L, -1)) {
-		lua_call(L, 0, 0);
-	}
-	else {
-	    lua_pop(L, 1);
-	}
-	pthread_mutex_unlock(&myMutex);
+    // Quit synthesizer if needed
+    pthread_mutex_lock(&myMutex);
+    lua_getglobal(L, "QuitSynth");
+    if (lua_isfunction(L, -1)) {
+        lua_call(L, 0, 0);
+    }
+    else {
+        lua_pop(L, 1);
+    }
+    pthread_mutex_unlock(&myMutex);
     return 0;
 }
 
