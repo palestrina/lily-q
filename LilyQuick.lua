@@ -186,9 +186,9 @@ local function ChangingKey(c)
         end
         ChangeKey(k)
         local m
-        if k < 1 then
+        if k < 0 then
             m = "New key: " .. -k .. " flat" .. plural .. "."
-        elseif k > 1 then
+        elseif k > 0 then
             m = "New key: " .. k .. " sharp" .. plural .. "."
         else
             m = "New key: no sharps or flats."
