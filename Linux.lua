@@ -14,44 +14,40 @@ local OpenSynthCommand = [[su -c "qsynth --midi-driver=alsa_seq &" vaughan]]
 -- To run as root, a simpler alternative is:
 --local OpenSynthCommand = "qsynth --midi-driver=alsa_seq &"
 
---[[
-    OK, now there seems to be a bug opening Qsynth from Lua. The
-    workaround should be to open Qsynth before LilyQuick, and it should
-    still connect
-
---]]
 LinuxOpenSynth = function()
-    if quitSynthOnOpen then
-        QuitSynth()
-    end
-    local success, message, code = os.execute(OpenSynthCommand)
-    if not quitSynthOnClose then
-        QuitSynth = nil -- will now not be called on quitting
+    if not openSynthMyself then
+        if quitSynthOnOpen then
+            QuitSynth()
+        end
+        local success, message, code = os.execute(OpenSynthCommand)
+        print(success, message, code)
+        if not quitSynthOnClose then
+            QuitSynth = nil -- will now not be called on quitting
+        end
     end
 end
--- new version of the command which will not open OR quit Qsynth
----[[
-LinuxOpenSynth = function()
-    print("Alternative LinuxOpenSynth being run")
-end
---]]
+
+-- Opening the synth no longer seems to work on Debian 10. Instead
+-- you can open Qsynth before LQ, which works OK.
 
 
 
--- Routine to close Qsynth either before 
+-- Routine to close Qsynth either before starting or after ending LQ
 
 do
     local synth = "qsynth" -- change to fluidsynth if you don't use Qsynth
     local fail = false
     QuitSynth = function()
-        local P = io.popen("pidof " .. synth)
-        if P then
-            local pid = P:read("a"):match("%d+")
-            if pid then
-                os.execute("kill " .. pid)
+        if (not openSynthMyself) and quitSynthOnClose then
+            local P = io.popen("pidof " .. synth)
+            if P then
+                local pid = P:read("a"):match("%d+")
+                if pid then
+                    os.execute("kill " .. pid)
+                end
+            else
+                print("LilyQuick - pidof failed!")
             end
-        else
-            print("LilyQuick - pidof failed!")
         end
     end
 end
@@ -115,7 +111,7 @@ LinuxAconnect = function()
      end
      A:close()
      if speedyOut and synthIn then
-     print("aconnect " .. speedyOut .. " " .. synthIn)
+        print("aconnect " .. speedyOut .. " " .. synthIn)
         os.execute("aconnect " .. speedyOut .. " " .. synthIn)
         return true
      end
@@ -137,6 +133,7 @@ do
         local amdid = line:match("(hw%:%d+%,%d+%,?%d*).- " .. MIDIKeyboardName)
         if amdid then
             AlsaMIDIDeviceID = amdid
+            print("AlsaMIDIDeviceID = " .. amdid)
         end
         line = A:read("l")
     end
