@@ -79,7 +79,36 @@ Exec=/usr/bin/qsynth --midi-driver=oss
 
 or whichever MIDI driver you normally use. Then when you open Qsynth with the GUI, it will use the correct MIDI driver.
 
+TROUBLESHOOTING
 
+If output does not appear in a terminal/editor/lilypond check that X11 has the
+permissions to read the new device created /dev/input/event?? (see Xorg.0.log)
+Copy the included rules file to /etc/udev/rules.d/ as a fix. (exposes terminal content to all users!)
+
+lq is very picky about sharing the midi device.  Check for conflict with frescobali midi inputs and with jack.
+Running qsynth through pulseaudio is easier.  Try disabling automatic qsynth startup in Linux.lua
+
+ LinuxOpenSynth = function()
+ end
+
+and then starting qsynth manually or using an alternative sound engine.
+
+lq tries to make the connection for a few seconds, but if you are too slow you will need to connect the input manually:
+For example
+aconnect -i -o
+...
+...
+client 128: 'Client-128' [type=user,pid=606993]
+    0 'Virtual RawMIDI '
+client 129: 'FLUID Synth (qsynth)' [type=user,pid=607002]
+    0 'Synth input port (qsynth:0)'
+
+aconnect 128 129
+
+qsynth may be silent on channels higher than 1 (bug in qsynth?). Setting in LQconfig.lua
+Alternatively use fluidsynth from the command line in another terminal.
+
+fluidsynth -a pulseaudio -m alsa_seq -g2 /path/to/soundfont.sf2
 
 
 

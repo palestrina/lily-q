@@ -1,0 +1,4 @@
+Copy this to 
+/etc/udev/rules.d/
+if X11 is run as a normal user and lacks permissions to read virtual device file
+(check Xorg.0.log)
