@@ -45,6 +45,9 @@ longestNoteOnKeypad = "1"
 -- eg. a2 b2 c8 d8 e8 f8
 explicitRhythms = false
 
+-- notes from midi using last rhythm
+midiOnly = false
+
 -- Should each line (following a bar check) have the first rhythm explicitly stated?
 --[[  eg
 a2 b |

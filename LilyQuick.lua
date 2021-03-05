@@ -800,6 +800,15 @@ function ToggleAbsoluteRelative()
     end
 end
 
+function ToggleMidiOnly()
+    midiOnly = not midiOnly
+    if midiOnly then
+        print("Notes from midi only with last rhythm")
+    else
+        print("Notes from midi and keypad")
+    end
+end
+
 function ToggleRhythmCounting()
     rhythmCounting = not rhythmCounting
     if rhythmCounting then
@@ -914,6 +923,9 @@ function ProcessEvent.NOTE_ON(channel, pitch, velocity)
     else
         velocity = floor((velocity - 1) / (126/40) + 65)
     end
+   if midiOnly then
+	   AddNote(savedRhythm)
+   end
     SendMidiEvent(channel, pitch, velocity)
 end
 
